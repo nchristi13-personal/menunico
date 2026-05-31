@@ -1,36 +1,29 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# menunico
 
-## Getting Started
-
-First, run the development server:
+## Setup
 
 ```bash
+git clone git@github.com:nchristi13-personal/menunico.git
+cd menunico
+cp .env.local.example .env.local
+# Fill in the values in .env.local
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) to view the app.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Environment variables
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+See [.env.local.example](.env.local.example) for the full list. You'll need:
 
-## Learn More
+- `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` — from your Supabase project (Settings → API).
+- `SUPABASE_SERVICE_ROLE_KEY` — server-only key from the same page. Never expose to the client.
+- `ANTHROPIC_API_KEY` — from https://console.anthropic.com.
+- `CRON_SECRET` — any random string; used to authenticate scheduled jobs.
 
-To learn more about Next.js, take a look at the following resources:
+## Stack
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Next.js (App Router) + TypeScript
+- Tailwind CSS + shadcn/ui (new-york style, zinc base)
+- Supabase (SSR auth via `@supabase/ssr`)
