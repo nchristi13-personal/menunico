@@ -1,33 +1,43 @@
 "use client";
 
-// Tiny client component so we can use the onError handler
-// (event handlers are not allowed in Server Components).
 export default function Logo() {
   return (
-    <a href="/" className="flex items-center">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src="/logo.png"
-        alt="menunico"
-        height={36}
-        style={{ height: 36, width: "auto" }}
-        onError={(e) => {
-          const img = e.currentTarget;
-          img.style.display = "none";
-          const next = img.nextElementSibling as HTMLElement | null;
-          if (next) next.style.display = "";
-        }}
-      />
+    <a href="/" className="flex items-baseline gap-0" style={{ textDecoration: "none" }}>
       <span
         style={{
-          display: "none",
           fontFamily: "'Playfair Display', Georgia, serif",
-          fontSize: 20,
-          color: "#2c2825",
-          letterSpacing: "-0.02em",
+          fontSize: 22,
+          fontWeight: 600,
+          color: "#1e1c1a",
+          letterSpacing: "-0.01em",
+          lineHeight: 1,
         }}
       >
-        menunico
+        menu
+      </span>
+      <span
+        style={{
+          fontFamily: "'Playfair Display', Georgia, serif",
+          fontSize: 22,
+          fontWeight: 700,
+          color: "#c0392b",
+          letterSpacing: "-0.01em",
+          lineHeight: 1,
+        }}
+      >
+        .
+      </span>
+      <span
+        style={{
+          fontFamily: "'Playfair Display', Georgia, serif",
+          fontSize: 22,
+          fontWeight: 600,
+          color: "#1e1c1a",
+          letterSpacing: "-0.01em",
+          lineHeight: 1,
+        }}
+      >
+        nico
       </span>
     </a>
   );
