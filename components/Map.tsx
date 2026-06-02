@@ -64,6 +64,31 @@ function MapClickHandler({ onMapClick }: { onMapClick: () => void }) {
 // Quick-view panel
 // ---------------------------------------------------------------------------
 
+/** Strip the "(District)" suffix the spreadsheet embeds in addresses. */
+function cleanAddress(raw: string) {
+  return raw.replace(/\s*\([^)]+\)\s*$/, "").trim();
+}
+
+function CourseBlock({ label, dishes }: { label: string; dishes: string[] }) {
+  return (
+    <div className="py-3" style={{ borderTop: "1px solid #f0ece8" }}>
+      <p
+        className="text-[10px] font-semibold uppercase tracking-widest mb-2"
+        style={{ color: "#c0392b", letterSpacing: "0.1em" }}
+      >
+        {label}
+      </p>
+      <ul className="space-y-1">
+        {dishes.map((d) => (
+          <li key={d} className="text-[13px] leading-snug" style={{ color: "#3d3a38" }}>
+            {d}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function QuickViewPanel({
   restaurant,
   onClose,
@@ -79,181 +104,135 @@ function QuickViewPanel({
         side="right"
         className="p-0 flex flex-col"
         style={{
-          width: 290,
-          maxWidth: 290,
+          // Push below the 58px header so the panel doesn't overlap it.
+          top: 58,
+          height: "calc(100vh - 58px)",
+          width: 300,
+          maxWidth: 300,
           background: "#ffffff",
-          borderLeft: "1px solid #e8e4e0",
+          borderLeft: "1px solid #ece8e4",
+          boxShadow: "-8px 0 24px 0 rgba(44,40,37,0.07)",
         }}
       >
         {restaurant && (
           <>
-            {/* Header area */}
-            <div className="p-5 pb-0">
+            {/* ── Top info ──────────────────────────────────── */}
+            <div className="px-5 pt-5 pb-0 shrink-0">
+              {/* Close */}
               <button
                 onClick={onClose}
-                aria-label="Close panel"
-                className="absolute top-4 right-4 text-lg leading-none text-[#8a8680] hover:text-[#3d3a38] transition-colors"
+                aria-label="Close"
+                className="absolute top-4 right-4 w-6 h-6 flex items-center justify-center rounded-full transition-colors hover:bg-[#f4f0eb]"
+                style={{ color: "#aaa9a7", fontSize: 18, lineHeight: 1 }}
               >
                 ×
               </button>
 
-              {/* District badge */}
+              {/* Neighborhood chip */}
               <span
-                className="inline-block text-[11px] font-medium uppercase tracking-wider px-2 py-0.5 rounded mb-3"
-                style={{ background: "#fdf0ee", color: "#c0392b" }}
+                className="inline-block text-[10px] font-semibold uppercase tracking-widest px-2 py-0.5 rounded-full mb-3"
+                style={{ background: "#fdf0ee", color: "#c0392b", letterSpacing: "0.1em" }}
               >
                 {restaurant.neighborhood}
               </span>
 
               {/* Name */}
               <h2
-                className="mb-3 leading-snug"
-                style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 18, color: "#2c2825" }}
+                className="leading-tight mb-4 pr-5"
+                style={{
+                  fontFamily: "'Playfair Display', Georgia, serif",
+                  fontSize: 19,
+                  fontWeight: 600,
+                  color: "#1e1c1a",
+                }}
               >
                 {restaurant.name}
               </h2>
 
-              {/* Address + phone */}
-              <div className="space-y-1 mb-4">
-                <div className="flex items-start gap-1.5 text-[13px]" style={{ color: "#8a8680" }}>
-                  <svg
-                    width="13"
-                    height="13"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="shrink-0 mt-0.5"
-                  >
+              {/* Meta — address + phone */}
+              <div className="space-y-1.5 mb-5">
+                <div className="flex items-start gap-2 text-[12px]" style={{ color: "#7a7775" }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 mt-0.5">
                     <path d="M20 10c0 6-8 13-8 13S4 16 4 10a8 8 0 0 1 16 0Z" />
                     <circle cx="12" cy="10" r="3" />
                   </svg>
-                  <span>{restaurant.address}</span>
+                  <span>{cleanAddress(restaurant.address)}</span>
                 </div>
-                <div className="flex items-center gap-1.5 text-[13px]" style={{ color: "#8a8680" }}>
-                  <svg
-                    width="13"
-                    height="13"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="shrink-0"
-                  >
+                <div className="flex items-center gap-2 text-[12px]" style={{ color: "#7a7775" }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
                     <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.84 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.77 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 8.91a16 16 0 0 0 6 6l.91-.91a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92Z" />
                   </svg>
                   <span>{restaurant.telephone}</span>
                 </div>
               </div>
 
-              {/* Price */}
-              {menu?.price_eur != null ? (
-                <div
-                  className="mb-1"
-                  style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 26, color: "#c0392b", lineHeight: 1 }}
-                >
-                  €{Number(menu.price_eur).toFixed(2)}
-                </div>
-              ) : (
-                <div className="mb-1 text-[15px]" style={{ color: "#8a8680" }}>
-                  No menu today
-                </div>
-              )}
-
-              {/* Drink / bread note */}
-              {menu && (
-                <p className="text-[12px] mb-4" style={{ color: "#8a8680" }}>
-                  {[
-                    menu.drink_included && "drink included",
-                    menu.bread_included && "bread included",
-                  ]
-                    .filter(Boolean)
-                    .join(" · ") || "drink & bread not included"}
-                </p>
-              )}
-            </div>
-
-            {/* Menu boxes */}
-            {menu?.primeros && menu.segundos ? (
-              <div className="px-5 space-y-2 overflow-y-auto flex-1">
-                {/* Primeros */}
-                <div
-                  className="rounded p-3"
-                  style={{ background: "#f8f5f1", border: "1px solid #e8e4e0" }}
-                >
-                  <p className="text-[10px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: "#8a8680" }}>
-                    Primeros
-                  </p>
-                  <ul className="space-y-0.5">
-                    {menu.primeros.map((d) => (
-                      <li key={d} className="text-[13px]" style={{ color: "#2c2825" }}>
-                        {d}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                {/* Segundos */}
-                <div
-                  className="rounded p-3"
-                  style={{ background: "#f8f5f1", border: "1px solid #e8e4e0" }}
-                >
-                  <p className="text-[10px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: "#8a8680" }}>
-                    Segundos
-                  </p>
-                  <ul className="space-y-0.5">
-                    {menu.segundos.map((d) => (
-                      <li key={d} className="text-[13px]" style={{ color: "#2c2825" }}>
-                        {d}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                {/* Postres */}
-                {menu.postres && (
-                  <div
-                    className="rounded p-3"
-                    style={{ background: "#f8f5f1", border: "1px solid #e8e4e0" }}
-                  >
-                    <p className="text-[10px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: "#8a8680" }}>
-                      Postres
-                    </p>
-                    <ul className="space-y-0.5">
-                      {menu.postres.map((d) => (
-                        <li key={d} className="text-[13px]" style={{ color: "#2c2825" }}>
-                          {d}
-                        </li>
-                      ))}
-                    </ul>
+              {/* Price row */}
+              <div
+                className="flex items-end justify-between pb-4"
+                style={{ borderBottom: "1px solid #f0ece8" }}
+              >
+                {menu?.price_eur != null ? (
+                  <div>
+                    <span
+                      style={{
+                        fontFamily: "'Playfair Display', Georgia, serif",
+                        fontSize: 30,
+                        fontWeight: 600,
+                        color: "#c0392b",
+                        lineHeight: 1,
+                      }}
+                    >
+                      €{Number(menu.price_eur).toFixed(2)}
+                    </span>
                   </div>
+                ) : (
+                  <span className="text-[14px]" style={{ color: "#7a7775" }}>
+                    No menu today
+                  </span>
+                )}
+                {menu && (
+                  <span className="text-[11px]" style={{ color: "#b0ada9" }}>
+                    {[
+                      menu.drink_included && "bebida",
+                      menu.bread_included && "pan",
+                    ]
+                      .filter(Boolean)
+                      .join(" + ") || "sin bebida ni pan"}
+                    {" "}incl.
+                  </span>
                 )}
               </div>
+            </div>
+
+            {/* ── Menu courses ──────────────────────────────── */}
+            {menu?.primeros ? (
+              <div className="px-5 overflow-y-auto flex-1 pb-1">
+                <CourseBlock label="Primeros" dishes={menu.primeros} />
+                {menu.segundos && <CourseBlock label="Segundos" dishes={menu.segundos} />}
+                {menu.postres && <CourseBlock label="Postres" dishes={menu.postres} />}
+              </div>
             ) : (
-              <div className="px-5 flex-1" />
+              <div className="flex-1" />
             )}
 
-            {/* CTA */}
-            <div className="p-5 pt-3">
+            {/* ── CTA ───────────────────────────────────────── */}
+            <div className="px-5 py-4 shrink-0" style={{ borderTop: "1px solid #f0ece8" }}>
               {menu?.price_eur != null ? (
                 <a
                   href={`/restaurant/${restaurant.id}`}
-                  className="block w-full text-center text-[13px] font-medium text-white rounded py-2.5 transition-opacity hover:opacity-90"
+                  className="flex items-center justify-between w-full text-[13px] font-medium text-white px-4 py-3 rounded-lg transition-opacity hover:opacity-90"
                   style={{ background: "#c0392b" }}
                 >
-                  See today's menu →
+                  <span>Ver el menú completo</span>
+                  <span>→</span>
                 </a>
               ) : (
                 <button
                   disabled
-                  className="block w-full text-center text-[13px] font-medium rounded py-2.5 opacity-40 cursor-not-allowed"
-                  style={{ background: "#e8e4e0", color: "#8a8680" }}
+                  className="w-full text-[13px] font-medium px-4 py-3 rounded-lg opacity-40 cursor-not-allowed"
+                  style={{ background: "#f0ece8", color: "#7a7775" }}
                 >
-                  No menu today
+                  Sin menú hoy
                 </button>
               )}
             </div>
