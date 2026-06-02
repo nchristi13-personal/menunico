@@ -213,6 +213,25 @@ function QuickViewPanel({
                     ))}
                   </ul>
                 </div>
+
+                {/* Postres */}
+                {menu.postres && (
+                  <div
+                    className="rounded p-3"
+                    style={{ background: "#f8f5f1", border: "1px solid #e8e4e0" }}
+                  >
+                    <p className="text-[10px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: "#8a8680" }}>
+                      Postres
+                    </p>
+                    <ul className="space-y-0.5">
+                      {menu.postres.map((d) => (
+                        <li key={d} className="text-[13px]" style={{ color: "#2c2825" }}>
+                          {d}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="px-5 flex-1" />
