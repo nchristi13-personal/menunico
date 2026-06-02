@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import MapLoader from "@/components/MapLoader";
+import Logo from "@/components/Logo";
 import type { Restaurant } from "@/components/Map";
 
 export default async function Home() {
@@ -35,26 +36,8 @@ export default async function Home() {
           position: "relative",
         }}
       >
-        {/* Logo / wordmark */}
-        <a href="/" className="flex items-center">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/logo.png"
-            alt="menunico"
-            height={36}
-            style={{ height: 36, width: "auto" }}
-            onError={(e) => {
-              // Fallback to text wordmark if logo.png hasn't been added yet.
-              const img = e.currentTarget;
-              img.style.display = "none";
-              const span = document.createElement("span");
-              span.textContent = "menunico";
-              span.style.cssText =
-                "font-family:'Playfair Display',Georgia,serif;font-size:20px;color:#2c2825;letter-spacing:-0.02em";
-              img.parentElement?.appendChild(span);
-            }}
-          />
-        </a>
+        {/* Logo / wordmark — client component to allow onError handler */}
+        <Logo />
 
         {/* Right controls */}
         <div className="flex items-center gap-3">
