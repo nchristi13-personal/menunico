@@ -11,6 +11,7 @@ const geistSans = Geist({
 export const metadata: Metadata = {
   title: "menunico — menús del día en Barcelona",
   description: "Descubre los menús del día de los restaurantes de Barcelona.",
+  viewport: "width=device-width, initial-scale=1, viewport-fit=cover",
 };
 
 export default function RootLayout({

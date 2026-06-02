@@ -105,8 +105,10 @@ function QuickViewPanel({
         className="p-0 flex flex-col"
         style={{
           // Push below the 58px header so the panel doesn't overlap it.
+          // Use 100dvh (dynamic viewport height) instead of 100vh so the
+          // panel doesn't extend behind the mobile browser's nav bar.
           top: 58,
-          height: "calc(100vh - 58px)",
+          height: "calc(100dvh - 58px)",
           width: 300,
           maxWidth: 300,
           background: "#ffffff",
@@ -216,7 +218,7 @@ function QuickViewPanel({
             )}
 
             {/* ── CTA ───────────────────────────────────────── */}
-            <div className="px-5 py-4 shrink-0" style={{ borderTop: "1px solid #f0ece8" }}>
+            <div className="px-5 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] shrink-0" style={{ borderTop: "1px solid #f0ece8" }}>
               {menu?.price_eur != null ? (
                 <a
                   href={`/restaurant/${restaurant.id}`}
