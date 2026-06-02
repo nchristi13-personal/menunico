@@ -195,12 +195,9 @@ function QuickViewPanel({
                 {menu && (
                   <span className="text-[11px]" style={{ color: "#b0ada9" }}>
                     {[
-                      menu.drink_included && "bebida",
-                      menu.bread_included && "pan",
-                    ]
-                      .filter(Boolean)
-                      .join(" + ") || "sin bebida ni pan"}
-                    {" "}incl.
+                      menu.drink_included ? "bebida incl." : "sin bebida",
+                      menu.bread_included ? "pan incl." : "sin pan",
+                    ].join(" · ")}
                   </span>
                 )}
               </div>
