@@ -18,7 +18,7 @@ export default function MobileMenu() {
   }, [open]);
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className="relative" style={{ zIndex: 2000 }}>
       {/* Hamburger / close button */}
       <button
         onClick={() => setOpen((o) => !o)}
@@ -51,6 +51,7 @@ export default function MobileMenu() {
             background: "#ffffff",
             border: "1px solid #ece8e4",
             boxShadow: "0 8px 24px rgba(44,40,37,0.12)",
+            zIndex: 2000,
           }}
         >
           <a
