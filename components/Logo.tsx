@@ -13,19 +13,19 @@ export default function Logo() {
           lineHeight: 1,
         }}
       >
-        menu
+        men
       </span>
       <span
         style={{
           fontFamily: "'Playfair Display', Georgia, serif",
           fontSize: 22,
-          fontWeight: 700,
+          fontWeight: 600,
           color: "#c0392b",
           letterSpacing: "-0.01em",
           lineHeight: 1,
         }}
       >
-        .
+        ú
       </span>
       <span
         style={{
