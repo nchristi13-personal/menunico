@@ -132,9 +132,11 @@ export default function HomeClient({
       {/* Desktop header (sm+) — single row, 72px                          */}
       {/* ---------------------------------------------------------------- */}
       <header
-        className="hidden sm:flex items-center gap-6 px-6 shrink-0"
+        className="hidden sm:grid items-center px-6 shrink-0"
         style={{
           height: 72,
+          gridTemplateColumns: "1fr minmax(0, 480px) 1fr",
+          gap: "1.5rem",
           background: "#ffffff",
           borderBottom: "1px solid #ece8e4",
           zIndex: 1000,
@@ -142,18 +144,20 @@ export default function HomeClient({
         }}
       >
         {/* Left: wordmark */}
-        <Logo />
+        <div className="flex items-center">
+          <Logo />
+        </div>
 
-        {/* Center: search pill */}
+        {/* Center: search pill — truly centered via grid */}
         <SearchPill
           value={query}
           onChange={setQuery}
           showButton
-          className="flex-1 max-w-lg"
+          className="w-full"
         />
 
         {/* Right: date + login */}
-        <div className="flex items-center gap-4 shrink-0 ml-auto">
+        <div className="flex items-center gap-4 justify-end">
           <span
             style={{
               fontFamily: "'Playfair Display', Georgia, serif",
