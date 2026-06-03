@@ -120,15 +120,26 @@ function QuickViewPanel({
           <>
             {/* ── Top info ──────────────────────────────────── */}
             <div className="px-5 pt-5 pb-0 shrink-0">
-              {/* Close */}
-              <button
-                onClick={onClose}
-                aria-label="Close"
-                className="absolute top-4 right-4 w-6 h-6 flex items-center justify-center rounded-full transition-colors hover:bg-[#f4f0eb]"
-                style={{ color: "#aaa9a7", fontSize: 18, lineHeight: 1 }}
-              >
-                ×
-              </button>
+              {/* Top-right controls: favorite + close */}
+              <div className="absolute top-3 right-3 flex items-center gap-1">
+                <a
+                  href="/favorites"
+                  aria-label="Añadir a favoritos"
+                  className="w-8 h-8 flex items-center justify-center rounded-full transition-colors hover:bg-[#fdf0ee]"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c0392b" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78Z" />
+                  </svg>
+                </a>
+                <button
+                  onClick={onClose}
+                  aria-label="Cerrar"
+                  className="w-8 h-8 flex items-center justify-center rounded-full transition-colors hover:bg-[#f4f0eb]"
+                  style={{ color: "#aaa9a7", fontSize: 18, lineHeight: 1 }}
+                >
+                  ×
+                </button>
+              </div>
 
               {/* Neighborhood chip */}
               <span
