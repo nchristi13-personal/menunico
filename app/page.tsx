@@ -16,14 +16,14 @@ function formatDate(): string {
 
 export default async function Home() {
   const supabase = await createClient();
-  const today = new Date().toISOString().split("T")[0];
 
+  // No date filter while menus are static (pre-cron).
+  // Weekend 4: add .eq("menus.date", today) once the daily cron is live.
   const { data: restaurants, error } = await supabase
     .from("restaurants")
     .select(
       `*, menus!left(price_eur, drink_included, bread_included, primeros, segundos, postres)`
     )
-    .eq("menus.date", today)
     .returns<Restaurant[]>();
 
   if (error) {
