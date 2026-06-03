@@ -105,11 +105,11 @@ function QuickViewPanel({
         showCloseButton={false}
         className="p-0 flex flex-col"
         style={{
-          // Push below the 58px header so the panel doesn't overlap it.
-          // Use 100dvh (dynamic viewport height) instead of 100vh so the
-          // panel doesn't extend behind the mobile browser's nav bar.
-          top: 58,
-          height: "calc(100dvh - 58px)",
+          // Push below the header. Uses a CSS variable (--header-height)
+          // so it adjusts automatically when the header grows on mobile
+          // (58px desktop / 102px mobile with the search row).
+          top: "var(--header-height)",
+          height: "calc(100dvh - var(--header-height))",
           width: 300,
           maxWidth: 300,
           background: "#ffffff",
