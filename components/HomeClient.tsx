@@ -34,56 +34,76 @@ function searchRestaurants(restaurants: Restaurant[], query: string): Restaurant
 }
 
 // ---------------------------------------------------------------------------
-// Search input
+// Search pill — Airbnb-inspired: white, shadow, red search button
 // ---------------------------------------------------------------------------
 
-function SearchInput({
+function SearchPill({
   value,
   onChange,
+  showButton = false,
   className = "",
 }: {
   value: string;
   onChange: (v: string) => void;
+  showButton?: boolean;
   className?: string;
 }) {
   return (
-    <div className={`relative flex items-center ${className}`}>
-      <svg
-        className="absolute left-3 shrink-0 pointer-events-none"
-        width="14"
-        height="14"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="#9a9895"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
+    <div
+      className={`flex items-center gap-2 px-4 rounded-full bg-white ${className}`}
+      style={{
+        border: "1px solid rgba(0,0,0,0.08)",
+        boxShadow: "0 1px 2px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.06)",
+        height: 46,
+      }}
+    >
+      {/* Search icon */}
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9a9895" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
         <circle cx="11" cy="11" r="8" />
         <path d="m21 21-4.35-4.35" />
       </svg>
+
+      {/* Input */}
       <input
         type="search"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder="Buscar restaurante o plato…"
-        className="w-full pl-8 pr-3 py-1.5 text-[13px] rounded-full outline-none transition-colors"
-        style={{
-          background: "#f4f0eb",
-          border: "1px solid transparent",
-          color: "#1e1c1a",
-        }}
-        onFocus={(e) => (e.currentTarget.style.borderColor = "#c0392b")}
-        onBlur={(e) => (e.currentTarget.style.borderColor = "transparent")}
+        className="flex-1 outline-none bg-transparent text-[14px] min-w-0"
+        style={{ color: "#1e1c1a" }}
       />
-      {value && (
+
+      {/* Clear */}
+      {value && !showButton && (
         <button
           onClick={() => onChange("")}
-          className="absolute right-3 text-[#9a9895] hover:text-[#3d3a38] transition-colors"
-          aria-label="Limpiar búsqueda"
-          style={{ fontSize: 16, lineHeight: 1 }}
+          aria-label="Limpiar"
+          className="text-[#9a9895] hover:text-[#3d3a38] transition-colors shrink-0"
+          style={{ fontSize: 18, lineHeight: 1 }}
         >
           ×
+        </button>
+      )}
+
+      {/* Red search button (desktop) */}
+      {showButton && (
+        <button
+          onClick={() => {}}
+          aria-label="Buscar"
+          className="flex items-center justify-center w-9 h-9 rounded-full shrink-0 transition-opacity hover:opacity-90"
+          style={{ background: "#c0392b", marginRight: -8 }}
+        >
+          {value ? (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.35-4.35" />
+            </svg>
+          ) : (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.35-4.35" />
+            </svg>
+          )}
         </button>
       )}
     </div>
@@ -91,7 +111,7 @@ function SearchInput({
 }
 
 // ---------------------------------------------------------------------------
-// Main component
+// Main
 // ---------------------------------------------------------------------------
 
 export default function HomeClient({
@@ -109,23 +129,31 @@ export default function HomeClient({
   return (
     <>
       {/* ---------------------------------------------------------------- */}
-      {/* Header                                                            */}
+      {/* Desktop header (sm+) — single row, 72px                          */}
       {/* ---------------------------------------------------------------- */}
-
-      {/* Desktop: single row (logo | search | date + login) */}
       <header
-        className="hidden sm:flex items-center gap-4 px-5 shrink-0"
+        className="hidden sm:flex items-center gap-6 px-6 shrink-0"
         style={{
-          height: 58,
+          height: 72,
           background: "#ffffff",
           borderBottom: "1px solid #ece8e4",
           zIndex: 1000,
           position: "relative",
         }}
       >
+        {/* Left: wordmark */}
         <Logo />
-        <SearchInput value={query} onChange={setQuery} className="flex-1 max-w-sm" />
-        <div className="flex items-center gap-4 ml-auto">
+
+        {/* Center: search pill */}
+        <SearchPill
+          value={query}
+          onChange={setQuery}
+          showButton
+          className="flex-1 max-w-lg"
+        />
+
+        {/* Right: date + login */}
+        <div className="flex items-center gap-4 shrink-0 ml-auto">
           <span
             style={{
               fontFamily: "'Playfair Display', Georgia, serif",
@@ -148,7 +176,9 @@ export default function HomeClient({
         </div>
       </header>
 
-      {/* Mobile: two rows (logo + date/icon | search) */}
+      {/* ---------------------------------------------------------------- */}
+      {/* Mobile header (<sm) — row 1: logo + info, row 2: pill            */}
+      {/* ---------------------------------------------------------------- */}
       <header
         className="sm:hidden flex flex-col shrink-0"
         style={{
@@ -159,7 +189,7 @@ export default function HomeClient({
         }}
       >
         {/* Row 1 */}
-        <div className="flex items-center justify-between px-4" style={{ height: 58 }}>
+        <div className="flex items-center justify-between px-4" style={{ height: 56 }}>
           <Logo />
           <div className="flex items-center gap-3">
             <div className="flex flex-col items-end" style={{ lineHeight: 1.2 }}>
@@ -189,9 +219,10 @@ export default function HomeClient({
             </a>
           </div>
         </div>
-        {/* Row 2: search */}
+
+        {/* Row 2: pill */}
         <div className="px-4 pb-3">
-          <SearchInput value={query} onChange={setQuery} className="w-full" />
+          <SearchPill value={query} onChange={setQuery} className="w-full" />
         </div>
       </header>
 
@@ -200,6 +231,7 @@ export default function HomeClient({
       {/* ---------------------------------------------------------------- */}
       <div className="flex-1 relative" style={{ minHeight: 0 }}>
         <Map restaurants={filtered} />
+
         {query.trim() && filtered.length === 0 && (
           <div
             className="absolute inset-0 flex items-center justify-center pointer-events-none"
@@ -214,7 +246,7 @@ export default function HomeClient({
               }}
             >
               <p className="text-[14px] font-medium" style={{ color: "#1e1c1a" }}>
-                Sin resultados para "{query}"
+                Sin resultados para &ldquo;{query}&rdquo;
               </p>
               <p className="text-[12px] mt-1" style={{ color: "#9a9895" }}>
                 Prueba con otro nombre o plato

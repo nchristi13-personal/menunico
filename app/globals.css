@@ -132,10 +132,10 @@
 /* Header height as a CSS variable so the map panel can offset correctly.
    Mobile adds a second row for the search input. */
 :root {
-  --header-height: 58px;
+  --header-height: 72px;
 }
 @media (max-width: 639px) {
   :root {
-    --header-height: 102px;
+    --header-height: 109px; /* 56px row1 + 46px pill + 12px bottom padding */
   }
 }
