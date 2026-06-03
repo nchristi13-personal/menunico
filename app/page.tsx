@@ -3,15 +3,22 @@ import MapLoader from "@/components/MapLoader";
 import Logo from "@/components/Logo";
 import type { Restaurant } from "@/components/Map";
 
-function formatDate(): string {
-  const raw = new Date().toLocaleDateString("es-ES", {
+function formatDate(): { weekday: string; dayMonth: string } {
+  const now = new Date();
+  const weekday = now.toLocaleDateString("es-ES", {
     weekday: "long",
-    day: "numeric",
-    month: "short",
     timeZone: "Europe/Madrid",
   });
-  // "martes, 3 jun" → "Martes, 3 jun"
-  return raw.charAt(0).toUpperCase() + raw.slice(1).replace(/\.$/, "");
+  const dayMonth = now.toLocaleDateString("es-ES", {
+    day: "numeric",
+    month: "long",
+    timeZone: "Europe/Madrid",
+  });
+  // "martes" → "Martes", "3 de junio" stays as-is
+  return {
+    weekday: weekday.charAt(0).toUpperCase() + weekday.slice(1),
+    dayMonth,
+  };
 }
 
 export default async function Home() {
@@ -32,7 +39,7 @@ export default async function Home() {
 
   const data = restaurants ?? [];
   const menuCount = data.filter((r) => r.menus.length > 0).length;
-  const dateStr = formatDate();
+  const { weekday, dayMonth } = formatDate();
 
   return (
     <>
@@ -50,23 +57,39 @@ export default async function Home() {
         }}
       >
         {/* Left: wordmark + date */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
           <Logo />
-          <span
-            className="hidden sm:block"
+          {/* Date — masthead style, visible sm+ */}
+          <div
+            className="hidden sm:flex flex-col items-start"
             style={{
-              width: 1,
-              height: 14,
-              background: "#ddd9d5",
-              display: "inline-block",
+              paddingLeft: 16,
+              borderLeft: "2px solid #c0392b",
+              lineHeight: 1.15,
             }}
-          />
-          <span
-            className="hidden sm:block text-[12px]"
-            style={{ color: "#9a9895", letterSpacing: "0.01em" }}
           >
-            {dateStr}
-          </span>
+            <span
+              style={{
+                fontFamily: "'Playfair Display', Georgia, serif",
+                fontSize: 14,
+                fontWeight: 600,
+                color: "#1e1c1a",
+                letterSpacing: "-0.01em",
+              }}
+            >
+              {weekday}
+            </span>
+            <span
+              style={{
+                fontSize: 11,
+                color: "#9a9895",
+                letterSpacing: "0.02em",
+                marginTop: 1,
+              }}
+            >
+              {dayMonth}
+            </span>
+          </div>
         </div>
 
         {/* Right: favorites + account */}
