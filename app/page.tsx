@@ -65,7 +65,7 @@ export default async function Home() {
           className="hidden sm:block"
           style={{
             fontFamily: "'Playfair Display', Georgia, serif",
-            fontSize: 14,
+            fontSize: 18,
             fontWeight: 600,
             color: "#1e1c1a",
             letterSpacing: "-0.01em",
