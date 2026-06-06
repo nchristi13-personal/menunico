@@ -218,6 +218,7 @@ export default function HomeClient({
             onSelectRestaurant={setSelectedRestaurant}
             hoveredRestaurantId={hoveredRestaurantId}
             onHoverRestaurant={setHoveredRestaurantId}
+            activeDistrict={activeDistrict}
           />
 
           {/* Mobile empty-search overlay */}

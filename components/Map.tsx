@@ -148,14 +148,17 @@ function MapController({
   selected,
   restaurants,
   isMobile,
+  activeDistrict,
 }: {
   selected: Restaurant | null;
   restaurants: Restaurant[];
   isMobile: boolean;
+  activeDistrict?: string;
 }) {
   const map = useMap();
   const prevRef = useRef<Restaurant | null>(null);
 
+  // Selection-driven movement (unchanged behaviour).
   useEffect(() => {
     if (isMobile) {
       if (selected) {
@@ -177,10 +180,25 @@ function MapController({
           map.panTo(latLng);
         }
       }
-      // Deselect on desktop: do nothing to the viewport.
     }
     prevRef.current = selected;
   }, [selected, map, restaurants, isMobile]);
+
+  // District-filter zoom: fit the map to the district's restaurants.
+  // `restaurants` is already filtered by district when this effect fires,
+  // so we just read it from the closure — intentionally not in the deps array
+  // to avoid also zooming on search-query changes.
+  useEffect(() => {
+    if (activeDistrict === undefined) return;
+    const coords = restaurants
+      .filter((r) => r.latitude != null && r.longitude != null)
+      .map((r) => [r.latitude, r.longitude] as [number, number]);
+    if (coords.length === 0) return;
+    // Tighter padding for a single district; looser for the full overview.
+    const padding: [number, number] = activeDistrict === "Todos" ? [40, 40] : [70, 70];
+    map.fitBounds(coords, { padding, animate: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeDistrict, map]);
 
   return null;
 }
@@ -199,12 +217,14 @@ export default function Map({
   onSelectRestaurant,
   hoveredRestaurantId,
   onHoverRestaurant,
+  activeDistrict,
 }: {
   restaurants: Restaurant[];
   selectedRestaurant: Restaurant | null;
   onSelectRestaurant: (r: Restaurant | null) => void;
   hoveredRestaurantId?: string | null;
   onHoverRestaurant?: (id: string | null) => void;
+  activeDistrict?: string;
 }) {
   const markerRefs = useRef<globalThis.Map<string, L.Marker>>(new globalThis.Map());
   const isMobile = useIsMobile();
@@ -260,6 +280,7 @@ export default function Map({
           selected={selectedRestaurant}
           restaurants={restaurants}
           isMobile={isMobile}
+          activeDistrict={activeDistrict}
         />
 
         {restaurants.map((r) => {
