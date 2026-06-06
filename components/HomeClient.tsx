@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import dynamic from "next/dynamic";
 import Logo from "@/components/Logo";
+import BottomSheet from "@/components/BottomSheet";
 import type { Restaurant } from "@/components/Map";
 
 const Map = dynamic(() => import("@/components/Map"), {
@@ -93,17 +94,10 @@ function SearchPill({
           className="flex items-center justify-center w-9 h-9 rounded-full shrink-0 transition-opacity hover:opacity-90"
           style={{ background: "#c0392b", marginRight: -8 }}
         >
-          {value ? (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="11" cy="11" r="8" />
-              <path d="m21 21-4.35-4.35" />
-            </svg>
-          ) : (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="11" cy="11" r="8" />
-              <path d="m21 21-4.35-4.35" />
-            </svg>
-          )}
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.35-4.35" />
+          </svg>
         </button>
       )}
     </div>
@@ -124,6 +118,10 @@ export default function HomeClient({
   dayMonth: string;
 }) {
   const [query, setQuery] = useState("");
+  // Lifted selection state — shared between Map (desktop panel / mobile pins)
+  // and BottomSheet (mobile list + detail navigation).
+  const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
+
   const filtered = useMemo(() => searchRestaurants(restaurants, query), [restaurants, query]);
 
   return (
@@ -143,20 +141,12 @@ export default function HomeClient({
           position: "relative",
         }}
       >
-        {/* Left: wordmark */}
         <div className="flex items-center">
           <Logo />
         </div>
 
-        {/* Center: search pill — truly centered via grid */}
-        <SearchPill
-          value={query}
-          onChange={setQuery}
-          showButton
-          className="w-full"
-        />
+        <SearchPill value={query} onChange={setQuery} showButton className="w-full" />
 
-        {/* Right: date + login */}
         <div className="flex items-center gap-4 justify-end">
           <span
             style={{
@@ -192,7 +182,6 @@ export default function HomeClient({
           position: "relative",
         }}
       >
-        {/* Row 1 */}
         <div className="flex items-center justify-between px-4" style={{ height: 56 }}>
           <Logo />
           <div className="flex items-center gap-3">
@@ -224,17 +213,21 @@ export default function HomeClient({
           </div>
         </div>
 
-        {/* Row 2: pill */}
+        {/* Search pill — mobile */}
         <div className="px-4 pb-3">
           <SearchPill value={query} onChange={setQuery} className="w-full" />
         </div>
       </header>
 
       {/* ---------------------------------------------------------------- */}
-      {/* Map                                                               */}
+      {/* Map — full height; selection state is shared with BottomSheet     */}
       {/* ---------------------------------------------------------------- */}
       <div className="flex-1 relative" style={{ minHeight: 0 }}>
-        <Map restaurants={filtered} />
+        <Map
+          restaurants={filtered}
+          selectedRestaurant={selectedRestaurant}
+          onSelectRestaurant={setSelectedRestaurant}
+        />
 
         {query.trim() && filtered.length === 0 && (
           <div
@@ -258,6 +251,17 @@ export default function HomeClient({
             </div>
           </div>
         )}
+      </div>
+
+      {/* ---------------------------------------------------------------- */}
+      {/* Mobile-only bottom sheet — hidden at md (≥768px) via Tailwind     */}
+      {/* ---------------------------------------------------------------- */}
+      <div className="md:hidden">
+        <BottomSheet
+          restaurants={filtered}
+          selectedRestaurant={selectedRestaurant}
+          onSelectRestaurant={setSelectedRestaurant}
+        />
       </div>
     </>
   );

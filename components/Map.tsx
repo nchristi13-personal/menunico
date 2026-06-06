@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
-import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from "react-leaflet";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 
 // ---------------------------------------------------------------------------
@@ -46,30 +46,52 @@ function useIsMobile(): boolean {
   return isMobile;
 }
 
-// On mobile unselected markers grow to 18px diameter; selected grow to 22px.
+/**
+ * Mobile pin spec (BottomSheet era):
+ *   unselected → 8px diameter, 0.65 fill-opacity (subtle overview dots)
+ *   selected   → 12px fill + 2px white border (focal point)
+ *
+ * Desktop pin spec (unchanged):
+ *   unselected → 14px diameter
+ *   selected   → 18px diameter, 3px white border
+ */
 function makeIcon(selected: boolean, isMobile = false): L.DivIcon {
-  if (selected) {
-    const s = isMobile ? 22 : 18;
-    const c = s / 2;
+  if (isMobile) {
+    if (selected) {
+      return L.divIcon({
+        html: `<svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="#c0392b" stroke="#ffffff" stroke-width="2"/></svg>`,
+        className: "",
+        iconSize: [16, 16],
+        iconAnchor: [8, 8],
+      });
+    }
     return L.divIcon({
-      html: `<svg width="${s}" height="${s}"><circle cx="${c}" cy="${c}" r="${c - 2}" fill="#c0392b" stroke="#ffffff" stroke-width="3"/></svg>`,
+      html: `<svg width="8" height="8" viewBox="0 0 8 8"><circle cx="4" cy="4" r="4" fill="#c0392b" fill-opacity="0.65"/></svg>`,
       className: "",
-      iconSize: [s, s],
-      iconAnchor: [c, c],
+      iconSize: [8, 8],
+      iconAnchor: [4, 4],
     });
   }
-  const s = isMobile ? 18 : 14;
-  const c = s / 2;
+
+  // Desktop (unchanged)
+  if (selected) {
+    return L.divIcon({
+      html: `<svg width="18" height="18"><circle cx="9" cy="9" r="7" fill="#c0392b" stroke="#ffffff" stroke-width="3"/></svg>`,
+      className: "",
+      iconSize: [18, 18],
+      iconAnchor: [9, 9],
+    });
+  }
   return L.divIcon({
-    html: `<svg width="${s}" height="${s}"><circle cx="${c}" cy="${c}" r="${c - 1}" fill="#c0392b" stroke="#fafaf8" stroke-width="1.5"/></svg>`,
+    html: `<svg width="14" height="14"><circle cx="7" cy="7" r="6" fill="#c0392b" stroke="#fafaf8" stroke-width="1.5"/></svg>`,
     className: "",
-    iconSize: [s, s],
-    iconAnchor: [c, c],
+    iconSize: [14, 14],
+    iconAnchor: [7, 7],
   });
 }
 
 // ---------------------------------------------------------------------------
-// Map click → close panel (desktop only; mobile uses overlay)
+// Map click → close panel
 // ---------------------------------------------------------------------------
 
 function MapClickHandler({ onMapClick }: { onMapClick: () => void }) {
@@ -78,7 +100,50 @@ function MapClickHandler({ onMapClick }: { onMapClick: () => void }) {
 }
 
 // ---------------------------------------------------------------------------
-// Shared panel content
+// Map controller — flyTo on selection, fitBounds on clear (mobile only)
+// ---------------------------------------------------------------------------
+
+function MapController({
+  selected,
+  allRestaurants,
+  isMobile,
+}: {
+  selected: Restaurant | null;
+  allRestaurants: Restaurant[];
+  isMobile: boolean;
+}) {
+  const map = useMap();
+  const prevRef = useRef<Restaurant | null>(null);
+
+  useEffect(() => {
+    if (!isMobile) {
+      prevRef.current = selected;
+      return;
+    }
+
+    if (selected) {
+      map.flyTo([selected.latitude, selected.longitude], 15, {
+        animate: true,
+        duration: 0.6,
+      });
+    } else if (prevRef.current !== null) {
+      // Just cleared — fit overview
+      const coords = allRestaurants
+        .filter((r) => r.latitude != null && r.longitude != null)
+        .map((r) => [r.latitude, r.longitude] as [number, number]);
+      if (coords.length > 0) {
+        map.fitBounds(coords, { padding: [40, 40] });
+      }
+    }
+
+    prevRef.current = selected;
+  }, [selected, map, allRestaurants, isMobile]);
+
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Shared panel content (desktop right-slide panel)
 // ---------------------------------------------------------------------------
 
 function cleanAddress(raw: string) {
@@ -117,7 +182,6 @@ function PanelInner({
   return (
     <>
       {/* ── Block 1: Identity ─────────────────────────────────────────────── */}
-      {/* Badge · Name · Address + Phone all left-aligned, grouped by proximity */}
       <div className="px-5 pt-4 pb-3 shrink-0">
         {/* ♥ / × float at the panel's top-right corner — 44×44px touch areas */}
         <div className="absolute top-1 right-1 flex items-center">
@@ -140,7 +204,6 @@ function PanelInner({
           </button>
         </div>
 
-        {/* Neighborhood badge */}
         <span
           className="inline-block text-[10px] font-semibold uppercase tracking-widest px-2 py-0.5 rounded-full mb-2"
           style={{ background: "#fdf0ee", color: "#c0392b", letterSpacing: "0.1em" }}
@@ -148,7 +211,6 @@ function PanelInner({
           {restaurant.neighborhood}
         </span>
 
-        {/* Name — right-padded to stay clear of the two floating buttons */}
         <h2
           className="leading-tight mb-2 pr-[92px]"
           style={{
@@ -161,13 +223,12 @@ function PanelInner({
           {restaurant.name}
         </h2>
 
-        {/* Address · Phone — single left-aligned row, wraps if needed */}
         <div
           className="flex items-center flex-wrap gap-x-1.5 gap-y-0.5 text-[12px]"
           style={{ color: "#7a7775" }}
         >
           <a
-            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(cleanAddress(restaurant.address) + ', Barcelona')}`}
+            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(cleanAddress(restaurant.address) + ", Barcelona")}`}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-1 hover:underline"
@@ -192,10 +253,7 @@ function PanelInner({
       </div>
 
       {/* ── Block 2: Price ────────────────────────────────────────────────── */}
-      <div
-        className="px-5 py-3 shrink-0"
-        style={{ borderTop: "1px solid #f0ece8" }}
-      >
+      <div className="px-5 py-3 shrink-0" style={{ borderTop: "1px solid #f0ece8" }}>
         <div className="flex items-end justify-between">
           {menu?.price_eur != null ? (
             <span
@@ -226,8 +284,6 @@ function PanelInner({
       </div>
 
       {/* ── Block 3: Menu courses ─────────────────────────────────────────── */}
-      {/* Each CourseBlock carries its own borderTop — the first one acts as  */}
-      {/* the Block 2 → Block 3 divider; subsequent ones divide the sections. */}
       {menu?.primeros ? (
         <div className="px-5 overflow-y-auto flex-1 pb-[max(1rem,env(safe-area-inset-bottom))]">
           <CourseBlock label="Primeros" dishes={menu.primeros} />
@@ -242,72 +298,18 @@ function PanelInner({
 }
 
 // ---------------------------------------------------------------------------
-// Quick-view panel — bottom sheet on mobile, right slide on desktop
+// Desktop-only quick-view panel (right-sliding sheet)
 // ---------------------------------------------------------------------------
 
 function QuickViewPanel({
   restaurant,
   onClose,
-  isMobile,
 }: {
   restaurant: Restaurant | null;
   onClose: () => void;
-  isMobile: boolean;
 }) {
-  const isOpen = restaurant !== null;
-
-  if (isMobile) {
-    return (
-      <>
-        {/*
-          Transparent overlay covering the entire viewport.
-          When the sheet is open it captures all taps (keeps the map
-          non-interactive and dismisses the sheet on tap above it).
-          When closed it is fully click-through.
-        */}
-        <div
-          aria-hidden="true"
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 49,
-            pointerEvents: isOpen ? "auto" : "none",
-          }}
-          onClick={onClose}
-        />
-
-        {/* Bottom sheet — slides in/out with translateY */}
-        <div
-          style={{
-            position: "fixed",
-            left: 0,
-            right: 0,
-            bottom: 0,
-            height: "68vh",
-            zIndex: 50,
-            display: "flex",
-            flexDirection: "column",
-            background: "#ffffff",
-            borderRadius: "16px 16px 0 0",
-            borderTop: "1px solid #ece8e4",
-            boxShadow: "0 -8px 32px rgba(44,40,37,0.12)",
-            transform: isOpen ? "translateY(0)" : "translateY(100%)",
-            transition: "transform 300ms ease",
-            overflow: "hidden",
-          }}
-        >
-          {/* Keep mounted so the close animation plays; hide from a11y when closed */}
-          <div style={{ display: "contents" }} aria-hidden={!isOpen}>
-            {restaurant && <PanelInner restaurant={restaurant} onClose={onClose} />}
-          </div>
-        </div>
-      </>
-    );
-  }
-
-  // Desktop: right-sliding sheet
   return (
-    <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
+    <Sheet open={restaurant !== null} onOpenChange={(open) => !open && onClose()}>
       <SheetContent
         side="right"
         showCloseButton={false}
@@ -330,25 +332,35 @@ function QuickViewPanel({
 
 // ---------------------------------------------------------------------------
 // Main Map component
+// Receives selectedRestaurant as controlled state from HomeClient so that
+// the BottomSheet (mobile) and the right-slide panel (desktop) share the
+// same selection without duplicating state.
 // ---------------------------------------------------------------------------
 
-export default function Map({ restaurants }: { restaurants: Restaurant[] }) {
-  const [selected, setSelected] = useState<Restaurant | null>(null);
+export default function Map({
+  restaurants,
+  selectedRestaurant,
+  onSelectRestaurant,
+}: {
+  restaurants: Restaurant[];
+  selectedRestaurant: Restaurant | null;
+  onSelectRestaurant: (r: Restaurant | null) => void;
+}) {
   const markerRefs = useRef<globalThis.Map<string, L.Marker>>(new globalThis.Map());
   const isMobile = useIsMobile();
 
-  // Swap icons when selection or viewport class changes.
+  // Imperatively swap icons when selection or mobile-state changes.
   useEffect(() => {
     for (const [id, marker] of markerRefs.current.entries()) {
-      marker.setIcon(makeIcon(id === selected?.id, isMobile));
+      marker.setIcon(makeIcon(id === selectedRestaurant?.id, isMobile));
     }
-  }, [selected, isMobile]);
+  }, [selectedRestaurant, isMobile]);
 
   const handleMarkerClick = (r: Restaurant) => {
-    setSelected((prev) => (prev?.id === r.id ? null : r));
+    onSelectRestaurant(selectedRestaurant?.id === r.id ? null : r);
   };
 
-  const handleClose = () => setSelected(null);
+  const handleClose = () => onSelectRestaurant(null);
 
   return (
     <>
@@ -366,12 +378,17 @@ export default function Map({ restaurants }: { restaurants: Restaurant[] }) {
         />
 
         <MapClickHandler onMapClick={handleClose} />
+        <MapController
+          selected={selectedRestaurant}
+          allRestaurants={restaurants}
+          isMobile={isMobile}
+        />
 
         {restaurants.map((r) => (
           <Marker
             key={r.id}
             position={[r.latitude, r.longitude]}
-            icon={makeIcon(r.id === selected?.id, isMobile)}
+            icon={makeIcon(r.id === selectedRestaurant?.id, isMobile)}
             ref={(marker) => {
               if (marker) markerRefs.current.set(r.id, marker);
               else markerRefs.current.delete(r.id);
@@ -386,7 +403,10 @@ export default function Map({ restaurants }: { restaurants: Restaurant[] }) {
         ))}
       </MapContainer>
 
-      <QuickViewPanel restaurant={selected} onClose={handleClose} isMobile={isMobile} />
+      {/* Desktop only — mobile navigation lives in <BottomSheet> */}
+      {!isMobile && (
+        <QuickViewPanel restaurant={selectedRestaurant} onClose={handleClose} />
+      )}
     </>
   );
 }
