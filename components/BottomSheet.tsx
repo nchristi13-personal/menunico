@@ -332,6 +332,12 @@ export default function BottomSheet({
     baseTopPx: number;
   } | null>(null);
 
+  // Tap-to-toggle: peek ↔ expanded. Used by both onClick and as a no-op
+  // guard when handleTouchEnd detects that the gesture was a tap.
+  const toggleSnap = useCallback(() => {
+    setSnapState((prev) => (prev === "peek" ? "expanded" : "peek"));
+  }, []);
+
   // When a restaurant is selected (e.g. from a map marker tap),
   // always snap to expanded so the detail view is fully visible.
   useEffect(() => {
@@ -381,6 +387,16 @@ export default function BottomSheet({
     (e: React.TouchEvent) => {
       if (!dragStateRef.current) return;
       const touch = e.changedTouches[0];
+
+      // If total movement < 5px it's a tap — clean up and let onClick fire.
+      const totalMove = Math.abs(touch.clientY - dragStateRef.current.startY);
+      if (totalMove < 5) {
+        setDragging(false);
+        setDragTopPx(null);
+        dragStateRef.current = null;
+        return;
+      }
+
       const deltaY = touch.clientY - dragStateRef.current.lastY;
       const deltaT = Math.max(1, Date.now() - dragStateRef.current.lastTime);
       const velocity = deltaY / deltaT; // px/ms; positive = downward
@@ -460,22 +476,50 @@ export default function BottomSheet({
         transition: dragging ? "none" : "top 0.3s ease",
       }}
     >
-      {/* ── Drag handle ─────────────────────────────────────────────────── */}
+      {/* ── Header strip — tap to toggle, drag as secondary gesture ───── */}
       <div
-        className="shrink-0 flex justify-center select-none touch-none"
-        style={{ paddingTop: 6, paddingBottom: 6, cursor: "grab" }}
+        className="shrink-0 select-none touch-none active:opacity-70"
+        style={{ cursor: "pointer", paddingTop: 8, paddingBottom: 8, transition: "opacity 0.1s" }}
+        onClick={toggleSnap}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-        <div
-          style={{
-            width: 28,
-            height: 3,
-            borderRadius: 9999,
-            background: "#d0cdc9",
-          }}
-        />
+        {/* Pill — wider and taller for graspability */}
+        <div className="flex justify-center" style={{ marginBottom: 7 }}>
+          <div
+            style={{
+              width: 36,
+              height: 4,
+              borderRadius: 9999,
+              background: "#d0cdc9",
+            }}
+          />
+        </div>
+
+        {/* Count (left) + animated chevron (right) */}
+        <div className="flex items-center justify-between px-4">
+          <span style={{ fontSize: 13, color: "#9a9895" }}>
+            {restaurants.length} restaurante{restaurants.length !== 1 ? "s" : ""} hoy
+          </span>
+          {/* Chevron points up in peek state, rotates 180° when expanded */}
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#b0ada9"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{
+              transform: snapState === "expanded" ? "rotate(180deg)" : "rotate(0deg)",
+              transition: "transform 0.25s ease",
+            }}
+          >
+            <path d="m18 15-6-6-6 6" />
+          </svg>
+        </div>
       </div>
 
       {/* ── Sliding panel area ──────────────────────────────────────────── */}
@@ -489,14 +533,11 @@ export default function BottomSheet({
             transition: "transform 0.25s ease",
           }}
         >
-          {/* Count + district chips */}
+          {/* District chips — horizontally scrollable */}
           <div
-            className="shrink-0 px-4 pt-2 pb-3"
+            className="shrink-0 px-4 pt-1 pb-3"
             style={{ borderBottom: "1px solid #f0ece8" }}
           >
-            <p className="text-[12px] mb-2" style={{ color: "#9a9895" }}>
-              {restaurants.length} restaurante{restaurants.length !== 1 ? "s" : ""} hoy
-            </p>
             {/* District chips — horizontally scrollable */}
             <div
               className="flex gap-1.5"
