@@ -42,10 +42,12 @@ function searchRestaurants(restaurants: Restaurant[], query: string): Restaurant
 function SearchPill({
   value,
   onChange,
+  showButton = false,
   className = "",
 }: {
   value: string;
   onChange: (v: string) => void;
+  showButton?: boolean;
   className?: string;
 }) {
   return (
@@ -69,7 +71,7 @@ function SearchPill({
         className="flex-1 outline-none bg-transparent text-[14px] min-w-0"
         style={{ color: "#1e1c1a" }}
       />
-      {value && (
+      {value && !showButton && (
         <button
           onClick={() => onChange("")}
           aria-label="Limpiar"
@@ -77,6 +79,19 @@ function SearchPill({
           style={{ fontSize: 18, lineHeight: 1 }}
         >
           ×
+        </button>
+      )}
+      {showButton && (
+        <button
+          onClick={() => {}}
+          aria-label="Buscar"
+          className="flex items-center justify-center w-9 h-9 rounded-full shrink-0 transition-opacity hover:opacity-90"
+          style={{ background: "#c0392b", marginRight: -8 }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.35-4.35" />
+          </svg>
         </button>
       )}
     </div>
@@ -133,7 +148,49 @@ export default function HomeClient({
   return (
     <>
       {/* ---------------------------------------------------------------- */}
-      {/* Mobile header — hidden at ≥768px (desktop uses left-pane header) */}
+      {/* Desktop header (≥768px) — single row, 72px                       */}
+      {/* ---------------------------------------------------------------- */}
+      <header
+        className="hidden md:grid items-center px-6 shrink-0"
+        style={{
+          height: 72,
+          gridTemplateColumns: "1fr minmax(0, 480px) 1fr",
+          gap: "1.5rem",
+          background: "#ffffff",
+          borderBottom: "1px solid #ece8e4",
+          zIndex: 1000,
+          position: "relative",
+        }}
+      >
+        <div className="flex items-center">
+          <Logo />
+        </div>
+        <SearchPill value={query} onChange={setQuery} showButton className="w-full" />
+        <div className="flex items-center gap-4 justify-end">
+          <span
+            style={{
+              fontFamily: "'Playfair Display', Georgia, serif",
+              fontSize: 18,
+              fontWeight: 600,
+              color: "#1e1c1a",
+              letterSpacing: "-0.01em",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {weekday}, {dayMonth}
+          </span>
+          <a
+            href="/login"
+            className="text-white text-[13px] font-medium px-4 py-1.5 rounded-full transition-opacity hover:opacity-90 whitespace-nowrap"
+            style={{ background: "#c0392b" }}
+          >
+            Iniciar sesión
+          </a>
+        </div>
+      </header>
+
+      {/* ---------------------------------------------------------------- */}
+      {/* Mobile header — hidden at ≥768px                                 */}
       {/* ---------------------------------------------------------------- */}
       <header
         className="md:hidden flex flex-col shrink-0"

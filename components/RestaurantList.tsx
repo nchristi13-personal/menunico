@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useEffect, useState, useMemo, useCallback } from "react";
-import Logo from "@/components/Logo";
 import type { Restaurant } from "@/components/Map";
 
 // ---------------------------------------------------------------------------
@@ -375,14 +374,9 @@ export default function RestaurantList({
           flexShrink: 0,
           background: "#ffffff",
           borderBottom: "1px solid #ece8e4",
-          padding: "16px 16px 12px",
+          padding: "12px 16px",
         }}
       >
-        {/* Logo */}
-        <div style={{ marginBottom: 10 }}>
-          <Logo />
-        </div>
-
         {/* Count */}
         <p style={{ fontSize: 12, color: "#9a9895", margin: "0 0 8px" }}>
           {restaurants.length} restaurante{restaurants.length !== 1 ? "s" : ""} hoy

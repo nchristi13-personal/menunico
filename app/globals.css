@@ -129,11 +129,12 @@
   }
 }
 
-/* Header height — used by BottomSheet to compute its expanded top offset.
-   Desktop (≥768px) has no top header (split-pane fills full height).
-   Mobile (<768px) has the two-row mobile header. */
+/* Header height — used by BottomSheet (mobile-only) to compute its expanded
+   top offset so the sheet clears the page header.
+   Desktop (≥768px): 72px header, but BottomSheet is hidden so value is
+   irrelevant at that width. Mobile (<768px): two-row header = 109px. */
 :root {
-  --header-height: 0px;
+  --header-height: 72px;
 }
 @media (max-width: 767px) {
   :root {
