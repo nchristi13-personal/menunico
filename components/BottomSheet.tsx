@@ -9,7 +9,7 @@ import type { Restaurant } from "@/components/Map";
 
 type SnapState = "peek" | "expanded";
 
-const PEEK_OFFSET = 96;        // sheet height in px when peeking (from bottom)
+const PEEK_OFFSET = 160;       // sheet height in px when peeking (from bottom)
 const MAP_STRIP_PX = 44;       // px of map visible above the sheet when expanded
 const VELOCITY_THRESHOLD = 0.3; // px/ms
 
@@ -30,8 +30,6 @@ function getHeaderHeightPx(): number {
 function expandedTopPx(): number {
   return getHeaderHeightPx() + MAP_STRIP_PX;
 }
-
-const CITIES = ["All", "Madrid", "Barcelona", "Valencia", "Seville", "Bilbao"] as const;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -318,7 +316,6 @@ export default function BottomSheet({
   onSelectRestaurant: (r: Restaurant | null) => void;
 }) {
   const [snapState, setSnapState] = useState<SnapState>("peek");
-  const [activeCity, setActiveCity] = useState<string>("All");
   const [dragging, setDragging] = useState(false);
   const [dragTopPx, setDragTopPx] = useState<number | null>(null);
 
@@ -338,11 +335,6 @@ export default function BottomSheet({
     // Only re-run when the selected restaurant changes identity.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedRestaurant]);
-
-  // City filter. All restaurants are currently in Barcelona; other chips
-  // scaffold future multi-city support.
-  const cityFiltered =
-    activeCity === "All" || activeCity === "Barcelona" ? restaurants : [];
 
   // ── Drag touch handlers (handle-only) ─────────────────────────────────────
 
@@ -491,52 +483,18 @@ export default function BottomSheet({
             transition: "transform 0.25s ease",
           }}
         >
-          {/* City filter chips — single horizontally scrollable row */}
-          <div
-            className="shrink-0 px-4 py-2 flex gap-2"
-            style={{
-              overflowX: "auto",
-              whiteSpace: "nowrap",
-              borderBottom: "1px solid #f0ece8",
-              scrollbarWidth: "none",
-            }}
-          >
-            {CITIES.map((city) => (
-              <button
-                key={city}
-                onClick={() => setActiveCity(city)}
-                className="inline-flex items-center px-3 py-1 rounded-full text-[12px] font-medium shrink-0 transition-colors"
-                style={
-                  activeCity === city
-                    ? {
-                        background: "#c0392b",
-                        color: "#ffffff",
-                        border: "1px solid #c0392b",
-                      }
-                    : {
-                        background: "transparent",
-                        color: "#3d3a38",
-                        border: "1px solid #d0cdc9",
-                      }
-                }
-              >
-                {city}
-              </button>
-            ))}
-          </div>
-
           {/* Count label */}
           <p
             className="shrink-0 px-4 py-2 text-[12px]"
-            style={{ color: "#9a9895" }}
+            style={{ color: "#9a9895", borderBottom: "1px solid #f0ece8" }}
           >
-            {cityFiltered.length} restaurante
-            {cityFiltered.length !== 1 ? "s" : ""} hoy
+            {restaurants.length} restaurante
+            {restaurants.length !== 1 ? "s" : ""} hoy
           </p>
 
           {/* Scrollable card list */}
           <div className="flex-1 overflow-y-auto">
-            {cityFiltered.map((r) => (
+            {restaurants.map((r) => (
               <RestaurantCard
                 key={r.id}
                 restaurant={r}
