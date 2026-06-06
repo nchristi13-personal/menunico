@@ -129,13 +129,29 @@
   }
 }
 
-/* Header height as a CSS variable so the map panel can offset correctly.
-   Mobile adds a second row for the search input. */
+/* Header height — used by BottomSheet to compute its expanded top offset.
+   Desktop (≥768px) has no top header (split-pane fills full height).
+   Mobile (<768px) has the two-row mobile header. */
 :root {
-  --header-height: 72px;
+  --header-height: 0px;
 }
-@media (max-width: 639px) {
+@media (max-width: 767px) {
   :root {
     --header-height: 109px; /* 56px row1 + 46px pill + 12px bottom padding */
   }
+}
+
+/* Leaflet pin tooltip (desktop hover) */
+.menunico-tooltip {
+  padding: 4px 8px;
+  border: none !important;
+  border-radius: 5px;
+  background: rgba(30, 28, 26, 0.82);
+  color: #fff;
+  font-size: 12px;
+  white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+}
+.menunico-tooltip::before {
+  border-top-color: rgba(30, 28, 26, 0.82) !important;
 }

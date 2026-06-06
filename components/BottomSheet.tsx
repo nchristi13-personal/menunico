@@ -310,10 +310,16 @@ export default function BottomSheet({
   restaurants,
   selectedRestaurant,
   onSelectRestaurant,
+  allDistricts,
+  activeDistrict,
+  onDistrictChange,
 }: {
   restaurants: Restaurant[];
   selectedRestaurant: Restaurant | null;
   onSelectRestaurant: (r: Restaurant | null) => void;
+  allDistricts: string[];
+  activeDistrict: string;
+  onDistrictChange: (d: string) => void;
 }) {
   const [snapState, setSnapState] = useState<SnapState>("peek");
   const [dragging, setDragging] = useState(false);
@@ -483,14 +489,35 @@ export default function BottomSheet({
             transition: "transform 0.25s ease",
           }}
         >
-          {/* Count label */}
-          <p
-            className="shrink-0 px-4 py-2 text-[12px]"
-            style={{ color: "#9a9895", borderBottom: "1px solid #f0ece8" }}
+          {/* Count + district chips */}
+          <div
+            className="shrink-0 px-4 pt-2 pb-3"
+            style={{ borderBottom: "1px solid #f0ece8" }}
           >
-            {restaurants.length} restaurante
-            {restaurants.length !== 1 ? "s" : ""} hoy
-          </p>
+            <p className="text-[12px] mb-2" style={{ color: "#9a9895" }}>
+              {restaurants.length} restaurante{restaurants.length !== 1 ? "s" : ""} hoy
+            </p>
+            {/* District chips — horizontally scrollable */}
+            <div
+              className="flex gap-1.5"
+              style={{ overflowX: "auto", whiteSpace: "nowrap", scrollbarWidth: "none" }}
+            >
+              {["Todos", ...allDistricts].map((d) => (
+                <button
+                  key={d}
+                  onClick={() => onDistrictChange(d)}
+                  className="inline-flex items-center px-3 py-1 rounded-full text-[12px] font-medium shrink-0 transition-colors"
+                  style={
+                    activeDistrict === d
+                      ? { background: "#c0392b", color: "#fff", border: "1px solid #c0392b" }
+                      : { background: "transparent", color: "#5a5755", border: "1px solid #d8d4d0" }
+                  }
+                >
+                  {d}
+                </button>
+              ))}
+            </div>
+          </div>
 
           {/* Scrollable card list */}
           <div className="flex-1 overflow-y-auto">

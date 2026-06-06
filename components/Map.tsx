@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
 import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from "react-leaflet";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -46,18 +45,40 @@ function useIsMobile(): boolean {
   return isMobile;
 }
 
-/**
- * Mobile pin spec (BottomSheet era):
- *   unselected → 8px diameter, 0.65 fill-opacity (subtle overview dots)
- *   selected   → 12px fill + 2px white border (focal point)
- *
- * Desktop pin spec (unchanged):
- *   unselected → 14px diameter
- *   selected   → 18px diameter, 3px white border
- */
-function makeIcon(selected: boolean, isMobile = false): L.DivIcon {
+// ---------------------------------------------------------------------------
+// Pin state → icon
+// ---------------------------------------------------------------------------
+
+type PinState = "default" | "hovered" | "selected" | "dimmed";
+
+function getPinState(
+  id: string,
+  selectedId: string | null,
+  hoveredId: string | null,
+  isMobile: boolean
+): PinState {
   if (isMobile) {
-    if (selected) {
+    return id === selectedId ? "selected" : "default";
+  }
+  if (selectedId !== null) return id === selectedId ? "selected" : "dimmed";
+  if (hoveredId !== null) return id === hoveredId ? "hovered" : "dimmed";
+  return "default";
+}
+
+/**
+ * Desktop pin sizes (PRD spec):
+ *   default  → 8px, 0.65 opacity
+ *   hovered  → 10px, full opacity
+ *   selected → 13px fill + 2px white border
+ *   dimmed   → 7px, 0.45 opacity
+ *
+ * Mobile pin sizes (unchanged from BottomSheet era):
+ *   default  → 8px, 0.65 opacity
+ *   selected → 12px fill + 2px white border
+ */
+function makeIcon(state: PinState, isMobile: boolean): L.DivIcon {
+  if (isMobile) {
+    if (state === "selected") {
       return L.divIcon({
         html: `<svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="#c0392b" stroke="#ffffff" stroke-width="2"/></svg>`,
         className: "",
@@ -73,25 +94,42 @@ function makeIcon(selected: boolean, isMobile = false): L.DivIcon {
     });
   }
 
-  // Desktop (unchanged)
-  if (selected) {
-    return L.divIcon({
-      html: `<svg width="18" height="18"><circle cx="9" cy="9" r="7" fill="#c0392b" stroke="#ffffff" stroke-width="3"/></svg>`,
-      className: "",
-      iconSize: [18, 18],
-      iconAnchor: [9, 9],
-    });
+  // Desktop
+  switch (state) {
+    case "selected":
+      // 13px fill + 2px white border → outer edge 7.5px → use 18×18 SVG
+      return L.divIcon({
+        html: `<svg width="18" height="18" viewBox="0 0 18 18"><circle cx="9" cy="9" r="6.5" fill="#c0392b" stroke="#ffffff" stroke-width="2"/></svg>`,
+        className: "",
+        iconSize: [18, 18],
+        iconAnchor: [9, 9],
+      });
+    case "hovered":
+      return L.divIcon({
+        html: `<svg width="10" height="10" viewBox="0 0 10 10"><circle cx="5" cy="5" r="5" fill="#c0392b"/></svg>`,
+        className: "",
+        iconSize: [10, 10],
+        iconAnchor: [5, 5],
+      });
+    case "dimmed":
+      return L.divIcon({
+        html: `<svg width="7" height="7" viewBox="0 0 7 7"><circle cx="3.5" cy="3.5" r="3.5" fill="#c0392b" fill-opacity="0.45"/></svg>`,
+        className: "",
+        iconSize: [7, 7],
+        iconAnchor: [3.5, 3.5],
+      });
+    default: // "default"
+      return L.divIcon({
+        html: `<svg width="8" height="8" viewBox="0 0 8 8"><circle cx="4" cy="4" r="4" fill="#c0392b" fill-opacity="0.65"/></svg>`,
+        className: "",
+        iconSize: [8, 8],
+        iconAnchor: [4, 4],
+      });
   }
-  return L.divIcon({
-    html: `<svg width="14" height="14"><circle cx="7" cy="7" r="6" fill="#c0392b" stroke="#fafaf8" stroke-width="1.5"/></svg>`,
-    className: "",
-    iconSize: [14, 14],
-    iconAnchor: [7, 7],
-  });
 }
 
 // ---------------------------------------------------------------------------
-// Map click → close panel
+// Map click → deselect
 // ---------------------------------------------------------------------------
 
 function MapClickHandler({ onMapClick }: { onMapClick: () => void }) {
@@ -100,267 +138,107 @@ function MapClickHandler({ onMapClick }: { onMapClick: () => void }) {
 }
 
 // ---------------------------------------------------------------------------
-// Map controller — flyTo on selection, fitBounds on clear (mobile only)
+// Map controller
+//   Mobile  → flyTo on select, fitBounds on deselect
+//   Desktop → panTo (no zoom) if selected pin is outside current bounds;
+//             deselect does NOT move the map
 // ---------------------------------------------------------------------------
 
 function MapController({
   selected,
-  allRestaurants,
+  restaurants,
   isMobile,
 }: {
   selected: Restaurant | null;
-  allRestaurants: Restaurant[];
+  restaurants: Restaurant[];
   isMobile: boolean;
 }) {
   const map = useMap();
   const prevRef = useRef<Restaurant | null>(null);
 
   useEffect(() => {
-    if (!isMobile) {
-      prevRef.current = selected;
-      return;
-    }
-
-    if (selected) {
-      map.flyTo([selected.latitude, selected.longitude], 15, {
-        animate: true,
-        duration: 0.6,
-      });
-    } else if (prevRef.current !== null) {
-      // Just cleared — fit overview
-      const coords = allRestaurants
-        .filter((r) => r.latitude != null && r.longitude != null)
-        .map((r) => [r.latitude, r.longitude] as [number, number]);
-      if (coords.length > 0) {
-        map.fitBounds(coords, { padding: [40, 40] });
+    if (isMobile) {
+      if (selected) {
+        map.flyTo([selected.latitude, selected.longitude], 15, {
+          animate: true,
+          duration: 0.6,
+        });
+      } else if (prevRef.current !== null) {
+        const coords = restaurants
+          .filter((r) => r.latitude != null && r.longitude != null)
+          .map((r) => [r.latitude, r.longitude] as [number, number]);
+        if (coords.length > 0) map.fitBounds(coords, { padding: [40, 40] });
       }
+    } else {
+      // Desktop: only pan if the selected pin is off-screen; never change zoom.
+      if (selected) {
+        const latLng = L.latLng(selected.latitude, selected.longitude);
+        if (!map.getBounds().contains(latLng)) {
+          map.panTo(latLng);
+        }
+      }
+      // Deselect on desktop: do nothing to the viewport.
     }
-
     prevRef.current = selected;
-  }, [selected, map, allRestaurants, isMobile]);
+  }, [selected, map, restaurants, isMobile]);
 
   return null;
 }
 
 // ---------------------------------------------------------------------------
-// Shared panel content (desktop right-slide panel)
-// ---------------------------------------------------------------------------
-
-function cleanAddress(raw: string) {
-  return raw.replace(/\s*\([^)]+\)\s*$/, "").trim();
-}
-
-function CourseBlock({ label, dishes }: { label: string; dishes: string[] }) {
-  return (
-    <div className="py-3" style={{ borderTop: "1px solid #f0ece8" }}>
-      <p
-        className="text-[10px] font-semibold uppercase tracking-widest mb-2"
-        style={{ color: "#c0392b", letterSpacing: "0.1em" }}
-      >
-        {label}
-      </p>
-      <ul className="space-y-1">
-        {dishes.map((d) => (
-          <li key={d} className="text-[13px] leading-snug" style={{ color: "#3d3a38" }}>
-            {d}
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-function PanelInner({
-  restaurant,
-  onClose,
-}: {
-  restaurant: Restaurant;
-  onClose: () => void;
-}) {
-  const menu = restaurant.menus?.[0] ?? null;
-
-  return (
-    <>
-      {/* ── Block 1: Identity ─────────────────────────────────────────────── */}
-      <div className="px-5 pt-4 pb-3 shrink-0">
-        {/* ♥ / × float at the panel's top-right corner — 44×44px touch areas */}
-        <div className="absolute top-1 right-1 flex items-center">
-          <a
-            href="/favorites"
-            aria-label="Añadir a favoritos"
-            className="w-11 h-11 flex items-center justify-center rounded-full transition-colors hover:bg-[#fdf0ee]"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c0392b" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78Z" />
-            </svg>
-          </a>
-          <button
-            onClick={onClose}
-            aria-label="Cerrar"
-            className="w-11 h-11 flex items-center justify-center rounded-full transition-colors hover:bg-[#f4f0eb]"
-            style={{ color: "#aaa9a7", fontSize: 20, lineHeight: 1 }}
-          >
-            ×
-          </button>
-        </div>
-
-        <span
-          className="inline-block text-[10px] font-semibold uppercase tracking-widest px-2 py-0.5 rounded-full mb-2"
-          style={{ background: "#fdf0ee", color: "#c0392b", letterSpacing: "0.1em" }}
-        >
-          {restaurant.neighborhood}
-        </span>
-
-        <h2
-          className="leading-tight mb-2 pr-[92px]"
-          style={{
-            fontFamily: "'Playfair Display', Georgia, serif",
-            fontSize: 19,
-            fontWeight: 600,
-            color: "#1e1c1a",
-          }}
-        >
-          {restaurant.name}
-        </h2>
-
-        <div
-          className="flex items-center flex-wrap gap-x-1.5 gap-y-0.5 text-[12px]"
-          style={{ color: "#7a7775" }}
-        >
-          <a
-            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(cleanAddress(restaurant.address) + ", Barcelona")}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1 hover:underline"
-          >
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-              <path d="M20 10c0 6-8 13-8 13S4 16 4 10a8 8 0 0 1 16 0Z" />
-              <circle cx="12" cy="10" r="3" />
-            </svg>
-            <span>{cleanAddress(restaurant.address)}</span>
-          </a>
-          <span aria-hidden="true" style={{ color: "#d8d4d0" }}>·</span>
-          <a
-            href={`tel:${restaurant.telephone.replace(/\s+/g, "")}`}
-            className="flex items-center gap-1 hover:underline"
-          >
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.84 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.77 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 8.91a16 16 0 0 0 6 6l.91-.91a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92Z" />
-            </svg>
-            <span>{restaurant.telephone}</span>
-          </a>
-        </div>
-      </div>
-
-      {/* ── Block 2: Price ────────────────────────────────────────────────── */}
-      <div className="px-5 py-3 shrink-0" style={{ borderTop: "1px solid #f0ece8" }}>
-        <div className="flex items-end justify-between">
-          {menu?.price_eur != null ? (
-            <span
-              style={{
-                fontFamily: "'Playfair Display', Georgia, serif",
-                fontSize: 30,
-                fontWeight: 600,
-                color: "#c0392b",
-                lineHeight: 1,
-              }}
-            >
-              €{Number(menu.price_eur).toFixed(2)}
-            </span>
-          ) : (
-            <span className="text-[14px]" style={{ color: "#7a7775" }}>
-              No menu today
-            </span>
-          )}
-          {menu && (
-            <span className="text-[11px]" style={{ color: "#b0ada9" }}>
-              {[
-                menu.drink_included ? "bebida incl." : "sin bebida",
-                menu.bread_included ? "pan incl." : "sin pan",
-              ].join(" · ")}
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* ── Block 3: Menu courses ─────────────────────────────────────────── */}
-      {menu?.primeros ? (
-        <div className="px-5 overflow-y-auto flex-1 pb-[max(1rem,env(safe-area-inset-bottom))]">
-          <CourseBlock label="Primeros" dishes={menu.primeros} />
-          {menu.segundos && <CourseBlock label="Segundos" dishes={menu.segundos} />}
-          {menu.postres && <CourseBlock label="Postres" dishes={menu.postres} />}
-        </div>
-      ) : (
-        <div className="flex-1" style={{ borderTop: "1px solid #f0ece8" }} />
-      )}
-    </>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Desktop-only quick-view panel (right-sliding sheet)
-// ---------------------------------------------------------------------------
-
-function QuickViewPanel({
-  restaurant,
-  onClose,
-}: {
-  restaurant: Restaurant | null;
-  onClose: () => void;
-}) {
-  return (
-    <Sheet open={restaurant !== null} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent
-        side="right"
-        showCloseButton={false}
-        className="p-0 flex flex-col"
-        style={{
-          top: "var(--header-height)",
-          height: "calc(100dvh - var(--header-height))",
-          width: 300,
-          maxWidth: 300,
-          background: "#ffffff",
-          borderLeft: "1px solid #ece8e4",
-          boxShadow: "-8px 0 24px 0 rgba(44,40,37,0.07)",
-        }}
-      >
-        {restaurant && <PanelInner restaurant={restaurant} onClose={onClose} />}
-      </SheetContent>
-    </Sheet>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Main Map component
-// Receives selectedRestaurant as controlled state from HomeClient so that
-// the BottomSheet (mobile) and the right-slide panel (desktop) share the
-// same selection without duplicating state.
+//
+// State is fully controlled from outside:
+//   selectedRestaurant  → drives pin highlight + mobile flyTo / desktop panTo
+//   hoveredRestaurantId → drives desktop hover highlight + tooltip (ignored on mobile)
 // ---------------------------------------------------------------------------
 
 export default function Map({
   restaurants,
   selectedRestaurant,
   onSelectRestaurant,
+  hoveredRestaurantId,
+  onHoverRestaurant,
 }: {
   restaurants: Restaurant[];
   selectedRestaurant: Restaurant | null;
   onSelectRestaurant: (r: Restaurant | null) => void;
+  hoveredRestaurantId?: string | null;
+  onHoverRestaurant?: (id: string | null) => void;
 }) {
   const markerRefs = useRef<globalThis.Map<string, L.Marker>>(new globalThis.Map());
   const isMobile = useIsMobile();
 
-  // Imperatively swap icons when selection or mobile-state changes.
+  const selectedId = selectedRestaurant?.id ?? null;
+  const hoveredId = hoveredRestaurantId ?? null;
+
+  // Bind/unbind Leaflet tooltips (desktop only: name + price above the pin).
   useEffect(() => {
     for (const [id, marker] of markerRefs.current.entries()) {
-      marker.setIcon(makeIcon(id === selectedRestaurant?.id, isMobile));
+      if (!isMobile) {
+        const r = restaurants.find((r) => r.id === id);
+        if (r) {
+          const menu = r.menus?.[0];
+          const price =
+            menu?.price_eur != null
+              ? ` · €${Number(menu.price_eur).toFixed(2)}`
+              : "";
+          marker.bindTooltip(`${r.name}${price}`, {
+            permanent: false,
+            direction: "top",
+            offset: L.point(0, -4),
+            className: "menunico-tooltip",
+          });
+        }
+      } else {
+        marker.unbindTooltip();
+      }
     }
-  }, [selectedRestaurant, isMobile]);
+  }, [isMobile, restaurants]);
 
   const handleMarkerClick = (r: Restaurant) => {
     onSelectRestaurant(selectedRestaurant?.id === r.id ? null : r);
   };
-
-  const handleClose = () => onSelectRestaurant(null);
 
   return (
     <>
@@ -377,36 +255,43 @@ export default function Map({
           maxZoom={19}
         />
 
-        <MapClickHandler onMapClick={handleClose} />
+        <MapClickHandler onMapClick={() => onSelectRestaurant(null)} />
         <MapController
           selected={selectedRestaurant}
-          allRestaurants={restaurants}
+          restaurants={restaurants}
           isMobile={isMobile}
         />
 
-        {restaurants.map((r) => (
-          <Marker
-            key={r.id}
-            position={[r.latitude, r.longitude]}
-            icon={makeIcon(r.id === selectedRestaurant?.id, isMobile)}
-            ref={(marker) => {
-              if (marker) markerRefs.current.set(r.id, marker);
-              else markerRefs.current.delete(r.id);
-            }}
-            eventHandlers={{
-              click: (e) => {
-                L.DomEvent.stopPropagation(e);
-                handleMarkerClick(r);
-              },
-            }}
-          />
-        ))}
+        {restaurants.map((r) => {
+          const pinState = getPinState(r.id, selectedId, hoveredId, isMobile);
+          return (
+            <Marker
+              key={r.id}
+              position={[r.latitude, r.longitude]}
+              icon={makeIcon(pinState, isMobile)}
+              ref={(marker) => {
+                if (marker) markerRefs.current.set(r.id, marker);
+                else markerRefs.current.delete(r.id);
+              }}
+              eventHandlers={{
+                click: (e) => {
+                  L.DomEvent.stopPropagation(e);
+                  handleMarkerClick(r);
+                },
+                // Desktop hover → propagate up so RestaurantList highlights too
+                ...(isMobile
+                  ? {}
+                  : {
+                      mouseover: () => onHoverRestaurant?.(r.id),
+                      mouseout: () => onHoverRestaurant?.(null),
+                    }),
+              }}
+            />
+          );
+        })}
       </MapContainer>
-
-      {/* Desktop only — mobile navigation lives in <BottomSheet> */}
-      {!isMobile && (
-        <QuickViewPanel restaurant={selectedRestaurant} onClose={handleClose} />
-      )}
+      {/* Desktop panel removed — detail lives in RestaurantList left pane.
+          Mobile detail lives in BottomSheet. */}
     </>
   );
 }
