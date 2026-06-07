@@ -67,19 +67,10 @@ function RestaurantCard({
       <span className="text-[14px] font-medium leading-snug" style={{ color: "#1e1c1a" }}>
         {restaurant.name}
       </span>
-      {menu?.price_eur != null && (
-        <div className="flex items-center gap-2 mt-0.5">
-          <span className="text-[14px] font-medium" style={{ color: "#c0392b" }}>
-            €{Number(menu.price_eur).toFixed(2)}
-          </span>
-          <span className="text-[11px]" style={{ color: "#b0ada9" }}>
-            {[
-              menu.drink_included ? "bebida incl." : "sin bebida",
-              menu.bread_included ? "pan incl." : "sin pan",
-            ].join(" · ")}
-          </span>
-        </div>
-      )}
+      <span className="text-[11px] mt-0.5" style={{ color: "#b0ada9" }}>
+        {cleanAddress(restaurant.address)}
+        {restaurant.telephone ? ` · ${restaurant.telephone}` : ""}
+      </span>
     </button>
   );
 }
@@ -99,8 +90,8 @@ function DetailView({
 
   return (
     <div className="h-full overflow-y-auto">
-      {/* Top row: ← Lista | ♥ */}
-      <div className="flex items-center justify-between px-4 pt-3 pb-1">
+      {/* Top row: ← Lista */}
+      <div className="flex items-center px-4 pt-3 pb-1">
         <button
           onClick={onBack}
           className="flex items-center gap-1 text-[13px] font-medium py-1"
@@ -120,24 +111,6 @@ function DetailView({
           </svg>
           Lista
         </button>
-        <a
-          href="/favorites"
-          aria-label="Añadir a favoritos"
-          className="w-11 h-11 flex items-center justify-center rounded-full transition-colors hover:bg-[#fdf0ee]"
-        >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="#c0392b"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78Z" />
-          </svg>
-        </a>
       </div>
 
       <div className="px-4 pb-8">
@@ -230,14 +203,6 @@ function DetailView({
               No menu today
             </span>
           )}
-          {menu && (
-            <span className="text-[11px]" style={{ color: "#b0ada9" }}>
-              {[
-                menu.drink_included ? "bebida incl." : "sin bebida",
-                menu.bread_included ? "pan incl." : "sin pan",
-              ].join(" · ")}
-            </span>
-          )}
         </div>
 
         {/* Divider */}
@@ -297,6 +262,16 @@ function DetailView({
             </section>
           )}
         </div>
+
+        {/* Drink / bread — secondary info */}
+        {menu && (
+          <p className="text-[11px] mt-3" style={{ color: "#b0ada9" }}>
+            {[
+              menu.drink_included ? "bebida incl." : "sin bebida",
+              menu.bread_included ? "pan incl." : "sin pan",
+            ].join(" · ")}
+          </p>
+        )}
       </div>
     </div>
   );

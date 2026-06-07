@@ -179,13 +179,6 @@ export default function HomeClient({
           >
             {weekday}, {dayMonth}
           </span>
-          <a
-            href="/login"
-            className="text-white text-[13px] font-medium px-4 py-1.5 rounded-full transition-opacity hover:opacity-90 whitespace-nowrap"
-            style={{ background: "#c0392b" }}
-          >
-            Iniciar sesión
-          </a>
         </div>
       </header>
 
@@ -218,17 +211,6 @@ export default function HomeClient({
               </span>
               <span style={{ fontSize: 11, color: "#7a7775" }}>{dayMonth}</span>
             </div>
-            <a
-              href="/login"
-              aria-label="Iniciar sesión"
-              className="flex items-center justify-center w-9 h-9 rounded-full transition-opacity hover:opacity-80 shrink-0"
-              style={{ background: "#c0392b" }}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                <circle cx="12" cy="7" r="4" />
-              </svg>
-            </a>
           </div>
         </div>
         <div className="px-4 pb-3">
