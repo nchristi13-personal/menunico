@@ -58,12 +58,19 @@ function RestaurantCard({
       className="w-full text-left px-4 py-3 flex flex-col gap-0.5 active:bg-[#fdf9f8]"
       style={{ borderBottom: "1px solid #f0ece8" }}
     >
-      <span
-        className="text-[10px] font-semibold uppercase tracking-widest"
-        style={{ color: "#c0392b", letterSpacing: "0.1em" }}
-      >
-        {restaurant.neighborhood}
-      </span>
+      <div className="flex items-center justify-between">
+        <span
+          className="text-[10px] font-semibold uppercase tracking-widest"
+          style={{ color: "#c0392b", letterSpacing: "0.1em" }}
+        >
+          {restaurant.neighborhood}
+        </span>
+        {menu?.price_eur != null && (
+          <span className="text-[14px] font-medium" style={{ color: "#c0392b" }}>
+            €{Number(menu.price_eur).toFixed(2)}
+          </span>
+        )}
+      </div>
       <span className="text-[14px] font-medium leading-snug" style={{ color: "#1e1c1a" }}>
         {restaurant.name}
       </span>
