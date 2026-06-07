@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import Logo from "@/components/Logo";
 import BottomSheet from "@/components/BottomSheet";
 import RestaurantList from "@/components/RestaurantList";
-import type { Restaurant } from "@/components/Map";
+import type { Restaurant, MapBounds } from "@/components/Map";
 
 const Map = dynamic(() => import("@/components/Map"), {
   ssr: false,
@@ -130,6 +130,14 @@ export default function HomeClient({
   // District filter — shared between desktop chips and mobile BottomSheet chips.
   const [activeDistrict, setActiveDistrict] = useState("Todos");
 
+  // "Search this area" — shown when user pans the map while a district is filtered.
+  const [showSearchArea, setShowSearchArea] = useState(false);
+  const [activeBoundsFilter, setActiveBoundsFilter] = useState<MapBounds | null>(null);
+  const pendingBoundsRef = useRef<MapBounds | null>(null);
+  // Set to true before changing district to "Todos" via "Buscar en esta zona"
+  // so MapController skips the fitBounds (map stays where the user panned to).
+  const suppressFitBoundsRef = useRef(false);
+
   // Price filter — shared between desktop and mobile.
   const [activePriceFilter, setActivePriceFilter] = useState<PriceFilter>(null);
 
@@ -171,6 +179,47 @@ export default function HomeClient({
       return true;
     });
   }, [districtFiltered, activePriceFilter]);
+
+  // Viewport-bounds filter — active only after the user clicks "Buscar en esta zona".
+  const finalFiltered = useMemo(() => {
+    if (!activeBoundsFilter) return priceFiltered;
+    return priceFiltered.filter(
+      (r) =>
+        r.latitude >= activeBoundsFilter.south &&
+        r.latitude <= activeBoundsFilter.north &&
+        r.longitude >= activeBoundsFilter.west &&
+        r.longitude <= activeBoundsFilter.east,
+    );
+  }, [priceFiltered, activeBoundsFilter]);
+
+  // Fires when the user manually drags/scrolls the map.
+  const handleUserMapMoved = useCallback(
+    (bounds: MapBounds) => {
+      // Only prompt while a specific district is filtered (not "Todos").
+      if (activeDistrict !== "Todos") {
+        pendingBoundsRef.current = bounds;
+        setShowSearchArea(true);
+      }
+    },
+    [activeDistrict],
+  );
+
+  // District chip handler — clears bounds filter & search-area prompt.
+  const handleDistrictChange = useCallback((d: string) => {
+    setActiveDistrict(d);
+    setActiveBoundsFilter(null);
+    setShowSearchArea(false);
+  }, []);
+
+  // "Buscar en esta zona" clicked — apply viewport bounds, reset to Todos,
+  // and suppress the automatic fitBounds zoom-out.
+  const handleSearchArea = useCallback(() => {
+    if (!pendingBoundsRef.current) return;
+    suppressFitBoundsRef.current = true;
+    setActiveBoundsFilter(pendingBoundsRef.current);
+    setActiveDistrict("Todos");
+    setShowSearchArea(false);
+  }, []);
 
   return (
     <>
@@ -265,10 +314,10 @@ export default function HomeClient({
           }}
         >
           <RestaurantList
-            restaurants={priceFiltered}
+            restaurants={finalFiltered}
             allDistricts={allDistricts}
             activeDistrict={activeDistrict}
-            onDistrictChange={setActiveDistrict}
+            onDistrictChange={handleDistrictChange}
             activePriceFilter={activePriceFilter}
             onPriceFilterChange={handlePriceFilterChange}
             selectedRestaurant={selectedRestaurant}
@@ -281,16 +330,43 @@ export default function HomeClient({
         {/* ── Map — shared by mobile and desktop ────────────────────── */}
         <div className="flex-1 relative" style={{ minHeight: 0 }}>
           <Map
-            restaurants={priceFiltered}
+            restaurants={finalFiltered}
             selectedRestaurant={selectedRestaurant}
             onSelectRestaurant={setSelectedRestaurant}
             hoveredRestaurantId={hoveredRestaurantId}
             onHoverRestaurant={setHoveredRestaurantId}
             activeDistrict={activeDistrict}
+            onUserMoved={handleUserMapMoved}
+            suppressFitBoundsRef={suppressFitBoundsRef}
           />
 
+          {/* "Buscar en esta zona" — desktop only, floats over map when visible */}
+          {showSearchArea && (
+            <div
+              className="hidden md:flex absolute inset-x-0 justify-center pointer-events-none"
+              style={{ top: 12, zIndex: 500 }}
+            >
+              <button
+                onClick={handleSearchArea}
+                className="pointer-events-auto flex items-center gap-2 rounded-full text-[13px] font-medium transition-opacity hover:opacity-90"
+                style={{
+                  padding: "7px 16px",
+                  background: "#ffffff",
+                  color: "#1e1c1a",
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.18)",
+                  border: "1px solid #ece8e4",
+                }}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#c0392b" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                </svg>
+                Buscar en esta zona
+              </button>
+            </div>
+          )}
+
           {/* Mobile empty-search overlay */}
-          {query.trim() && priceFiltered.length === 0 && (
+          {query.trim() && finalFiltered.length === 0 && (
             <div
               className="absolute inset-0 flex items-center justify-center pointer-events-none md:hidden"
               style={{ zIndex: 500 }}
@@ -320,12 +396,12 @@ export default function HomeClient({
       {/* ---------------------------------------------------------------- */}
       <div className="md:hidden">
         <BottomSheet
-          restaurants={priceFiltered}
+          restaurants={finalFiltered}
           selectedRestaurant={selectedRestaurant}
           onSelectRestaurant={setSelectedRestaurant}
           allDistricts={allDistricts}
           activeDistrict={activeDistrict}
-          onDistrictChange={setActiveDistrict}
+          onDistrictChange={handleDistrictChange}
           activePriceFilter={activePriceFilter}
           onPriceFilterChange={handlePriceFilterChange}
         />

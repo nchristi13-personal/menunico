@@ -8,6 +8,13 @@ import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from "react-lea
 // Types
 // ---------------------------------------------------------------------------
 
+export type MapBounds = {
+  south: number;
+  north: number;
+  west: number;
+  east: number;
+};
+
 export type MenuRow = {
   price_eur: number | null;
   drink_included: boolean | null;
@@ -155,19 +162,42 @@ function MapController({
   restaurants,
   isMobile,
   activeDistrict,
+  onUserMoved,
+  suppressFitBoundsRef,
 }: {
   selected: Restaurant | null;
   restaurants: Restaurant[];
   isMobile: boolean;
   activeDistrict?: string;
+  onUserMoved?: (bounds: MapBounds) => void;
+  suppressFitBoundsRef?: React.RefObject<boolean>;
 }) {
   const map = useMap();
   const prevRef = useRef<Restaurant | null>(null);
+  // True while a programmatic move (flyTo / fitBounds / panTo) is in flight.
+  // Prevents moveend from being reported as a user gesture.
+  const isProgrammaticRef = useRef(false);
+
+  // Register a moveend listener that fires onUserMoved only for real drags.
+  useEffect(() => {
+    const handler = () => {
+      if (isProgrammaticRef.current) {
+        isProgrammaticRef.current = false;
+        return;
+      }
+      if (!onUserMoved) return;
+      const b = map.getBounds();
+      onUserMoved({ south: b.getSouth(), north: b.getNorth(), west: b.getWest(), east: b.getEast() });
+    };
+    map.on("moveend", handler);
+    return () => { map.off("moveend", handler); };
+  }, [map, onUserMoved]);
 
   // Selection-driven movement (unchanged behaviour).
   useEffect(() => {
     if (isMobile) {
       if (selected) {
+        isProgrammaticRef.current = true;
         map.flyTo([selected.latitude, selected.longitude], 15, {
           animate: true,
           duration: 0.6,
@@ -176,13 +206,17 @@ function MapController({
         const coords = restaurants
           .filter((r) => r.latitude != null && r.longitude != null)
           .map((r) => [r.latitude, r.longitude] as [number, number]);
-        if (coords.length > 0) map.fitBounds(coords, { padding: [40, 40] });
+        if (coords.length > 0) {
+          isProgrammaticRef.current = true;
+          map.fitBounds(coords, { padding: [40, 40] });
+        }
       }
     } else {
       // Desktop: only pan if the selected pin is off-screen; never change zoom.
       if (selected) {
         const latLng = L.latLng(selected.latitude, selected.longitude);
         if (!map.getBounds().contains(latLng)) {
+          isProgrammaticRef.current = true;
           map.panTo(latLng);
         }
       }
@@ -200,7 +234,13 @@ function MapController({
       .filter((r) => r.latitude != null && r.longitude != null)
       .map((r) => [r.latitude, r.longitude] as [number, number]);
     if (coords.length === 0) return;
-    // Tighter maxZoom for a single district; looser padding for the full overview.
+    // When the district is reset to "Todos" via "Buscar en esta zona", the
+    // caller sets suppressFitBoundsRef so the map stays where the user panned.
+    if (suppressFitBoundsRef?.current) {
+      suppressFitBoundsRef.current = false;
+      return;
+    }
+    isProgrammaticRef.current = true;
     if (activeDistrict === "Todos") {
       map.fitBounds(coords, { padding: [32, 32], animate: true });
     } else {
@@ -227,6 +267,8 @@ export default function Map({
   hoveredRestaurantId,
   onHoverRestaurant,
   activeDistrict,
+  onUserMoved,
+  suppressFitBoundsRef,
 }: {
   restaurants: Restaurant[];
   selectedRestaurant: Restaurant | null;
@@ -234,6 +276,8 @@ export default function Map({
   hoveredRestaurantId?: string | null;
   onHoverRestaurant?: (id: string | null) => void;
   activeDistrict?: string;
+  onUserMoved?: (bounds: MapBounds) => void;
+  suppressFitBoundsRef?: React.RefObject<boolean>;
 }) {
   const markerRefs = useRef<globalThis.Map<string, L.Marker>>(new globalThis.Map());
   const isMobile = useIsMobile();
@@ -290,6 +334,8 @@ export default function Map({
           restaurants={restaurants}
           isMobile={isMobile}
           activeDistrict={activeDistrict}
+          onUserMoved={onUserMoved}
+          suppressFitBoundsRef={suppressFitBoundsRef}
         />
 
         {restaurants.map((r) => {
