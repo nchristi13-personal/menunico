@@ -67,7 +67,7 @@ function SearchPill({
         type="search"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder="Buscar restaurante o plato…"
+        placeholder="Buscar menus del dia"
         className="flex-1 outline-none bg-transparent text-[14px] min-w-0"
         style={{ color: "#1e1c1a" }}
       />
