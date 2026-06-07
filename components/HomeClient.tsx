@@ -195,13 +195,13 @@ export default function HomeClient({
   // Fires when the user manually drags/scrolls the map.
   const handleUserMapMoved = useCallback(
     (bounds: MapBounds) => {
-      // Only prompt while a specific district is filtered (not "Todos").
-      if (activeDistrict !== "Todos") {
+      // Prompt whenever a district OR a previous bounds filter is active.
+      if (activeDistrict !== "Todos" || activeBoundsFilter !== null) {
         pendingBoundsRef.current = bounds;
         setShowSearchArea(true);
       }
     },
-    [activeDistrict],
+    [activeDistrict, activeBoundsFilter],
   );
 
   // District chip handler — clears bounds filter & search-area prompt.
