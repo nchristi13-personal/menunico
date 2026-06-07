@@ -76,14 +76,21 @@ function getPinState(
  *   default  → 8px, 0.65 opacity
  *   selected → 12px fill + 2px white border
  */
+/**
+ * Teardrop location-pin SVG (selected state).
+ * 20×28px, tip at the bottom centre → anchor (10, 28).
+ * Distinct shape vs all other states (dots) so selected is unmistakable.
+ */
+const SELECTED_PIN_HTML = `<svg width="20" height="28" viewBox="0 0 20 28" style="filter:drop-shadow(0 2px 3px rgba(0,0,0,0.35))"><path d="M10 0C4.477 0 0 4.477 0 10c0 7.18 10 18 10 18s10-10.82 10-18C20 4.477 15.523 0 10 0z" fill="#c0392b"/><circle cx="10" cy="10" r="4" fill="white"/></svg>`;
+
 function makeIcon(state: PinState, isMobile: boolean): L.DivIcon {
   if (isMobile) {
     if (state === "selected") {
       return L.divIcon({
-        html: `<svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="#c0392b" stroke="#ffffff" stroke-width="2"/></svg>`,
+        html: SELECTED_PIN_HTML,
         className: "",
-        iconSize: [16, 16],
-        iconAnchor: [8, 8],
+        iconSize: [20, 28],
+        iconAnchor: [10, 28],
       });
     }
     return L.divIcon({
@@ -97,23 +104,22 @@ function makeIcon(state: PinState, isMobile: boolean): L.DivIcon {
   // Desktop
   switch (state) {
     case "selected":
-      // 13px fill + 2px white border → outer edge 7.5px → use 18×18 SVG
       return L.divIcon({
-        html: `<svg width="18" height="18" viewBox="0 0 18 18"><circle cx="9" cy="9" r="6.5" fill="#c0392b" stroke="#ffffff" stroke-width="2"/></svg>`,
+        html: SELECTED_PIN_HTML,
         className: "",
-        iconSize: [18, 18],
-        iconAnchor: [9, 9],
+        iconSize: [20, 28],
+        iconAnchor: [10, 28],
       });
     case "hovered":
       return L.divIcon({
-        html: `<svg width="10" height="10" viewBox="0 0 10 10"><circle cx="5" cy="5" r="5" fill="#c0392b"/></svg>`,
+        html: `<svg width="11" height="11" viewBox="0 0 11 11"><circle cx="5.5" cy="5.5" r="5.5" fill="#c0392b"/></svg>`,
         className: "",
-        iconSize: [10, 10],
-        iconAnchor: [5, 5],
+        iconSize: [11, 11],
+        iconAnchor: [5.5, 5.5],
       });
     case "dimmed":
       return L.divIcon({
-        html: `<svg width="7" height="7" viewBox="0 0 7 7"><circle cx="3.5" cy="3.5" r="3.5" fill="#c0392b" fill-opacity="0.45"/></svg>`,
+        html: `<svg width="7" height="7" viewBox="0 0 7 7"><circle cx="3.5" cy="3.5" r="3.5" fill="#c0392b" fill-opacity="0.35"/></svg>`,
         className: "",
         iconSize: [7, 7],
         iconAnchor: [3.5, 3.5],
