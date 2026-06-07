@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import type { Restaurant } from "@/components/Map";
+import type { PriceFilter } from "@/components/HomeClient";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -37,6 +38,46 @@ function expandedTopPx(): number {
 
 function cleanAddress(raw: string) {
   return raw.replace(/\s*\([^)]+\)\s*$/, "").trim();
+}
+
+// ---------------------------------------------------------------------------
+// Price chips
+// ---------------------------------------------------------------------------
+
+const PRICE_CHIPS: { key: NonNullable<PriceFilter>; label: string }[] = [
+  { key: "bajo",  label: "< €12"   },
+  { key: "medio", label: "€12–€14" },
+  { key: "alto",  label: "> €14"   },
+];
+
+function PriceChips({
+  active,
+  onChange,
+}: {
+  active: PriceFilter;
+  onChange: (f: PriceFilter) => void;
+}) {
+  return (
+    <div className="flex items-center gap-1.5 mt-2">
+      <span className="text-[11px] shrink-0" style={{ color: "#9a9895" }}>Precio:</span>
+      <div className="flex gap-1.5" style={{ overflowX: "auto", scrollbarWidth: "none" }}>
+        {PRICE_CHIPS.map(({ key, label }) => (
+          <button
+            key={key}
+            onClick={() => onChange(key)}
+            className="inline-flex items-center px-3 py-1 rounded-full text-[12px] font-medium shrink-0 transition-colors"
+            style={
+              active === key
+                ? { background: "#c0392b", color: "#fff", border: "1px solid #c0392b" }
+                : { background: "transparent", color: "#5a5755", border: "1px solid #d8d4d0" }
+            }
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -89,9 +130,11 @@ function RestaurantCard({
 function DetailView({
   restaurant,
   onBack,
+  onShowMap,
 }: {
   restaurant: Restaurant;
   onBack: () => void;
+  onShowMap: () => void;
 }) {
   const menu = restaurant.menus?.[0] ?? null;
 
@@ -279,6 +322,23 @@ function DetailView({
             ].join(" · ")}
           </p>
         )}
+
+        {/* Ver en mapa */}
+        <button
+          onClick={onShowMap}
+          style={{
+            width: "100%",
+            padding: "12px 0",
+            background: "none",
+            border: "none",
+            fontSize: 13,
+            color: "#c0392b",
+            cursor: "pointer",
+            textAlign: "center",
+          }}
+        >
+          Ver en mapa →
+        </button>
       </div>
     </div>
   );
@@ -295,6 +355,8 @@ export default function BottomSheet({
   allDistricts,
   activeDistrict,
   onDistrictChange,
+  activePriceFilter,
+  onPriceFilterChange,
 }: {
   restaurants: Restaurant[];
   selectedRestaurant: Restaurant | null;
@@ -302,6 +364,8 @@ export default function BottomSheet({
   allDistricts: string[];
   activeDistrict: string;
   onDistrictChange: (d: string) => void;
+  activePriceFilter: PriceFilter;
+  onPriceFilterChange: (f: PriceFilter) => void;
 }) {
   const [snapState, setSnapState] = useState<SnapState>("peek");
   const [dragging, setDragging] = useState(false);
@@ -509,49 +573,57 @@ export default function BottomSheet({
       <div className="flex-1 relative overflow-hidden">
         {/* List panel */}
         <div
-          className="absolute inset-0 flex flex-col"
+          className="absolute inset-0 overflow-y-auto"
           style={{
             transform: selectedRestaurant ? "translateX(-100%)" : "translateX(0)",
             transition: "transform 0.25s ease",
           }}
         >
-          {/* District chips — horizontally scrollable */}
+          {/* Sticky filter bar — district + price chips */}
           <div
-            className="shrink-0 px-4 pt-1 pb-3"
-            style={{ borderBottom: "1px solid #f0ece8" }}
+            style={{
+              position: "sticky",
+              top: 0,
+              zIndex: 10,
+              background: "#ffffff",
+              paddingBottom: 8,
+              borderBottom: "1px solid #f0ece8",
+            }}
           >
-            {/* District chips — horizontally scrollable */}
-            <div
-              className="flex gap-1.5"
-              style={{ overflowX: "auto", whiteSpace: "nowrap", scrollbarWidth: "none" }}
-            >
-              {["Todos", ...allDistricts].map((d) => (
-                <button
-                  key={d}
-                  onClick={() => onDistrictChange(d)}
-                  className="inline-flex items-center px-3 py-1 rounded-full text-[12px] font-medium shrink-0 transition-colors"
-                  style={
-                    activeDistrict === d
-                      ? { background: "#c0392b", color: "#fff", border: "1px solid #c0392b" }
-                      : { background: "transparent", color: "#5a5755", border: "1px solid #d8d4d0" }
-                  }
-                >
-                  {d}
-                </button>
-              ))}
+            <div className="px-4 pt-2">
+              {/* District chips */}
+              <div
+                className="flex gap-1.5"
+                style={{ overflowX: "auto", whiteSpace: "nowrap", scrollbarWidth: "none" }}
+              >
+                {["Todos", ...allDistricts].map((d) => (
+                  <button
+                    key={d}
+                    onClick={() => onDistrictChange(d)}
+                    className="inline-flex items-center px-3 py-1 rounded-full text-[12px] font-medium shrink-0 transition-colors"
+                    style={
+                      activeDistrict === d
+                        ? { background: "#c0392b", color: "#fff", border: "1px solid #c0392b" }
+                        : { background: "transparent", color: "#5a5755", border: "1px solid #d8d4d0" }
+                    }
+                  >
+                    {d}
+                  </button>
+                ))}
+              </div>
+              {/* Price chips */}
+              <PriceChips active={activePriceFilter} onChange={onPriceFilterChange} />
             </div>
           </div>
 
-          {/* Scrollable card list */}
-          <div className="flex-1 overflow-y-auto">
-            {restaurants.map((r) => (
-              <RestaurantCard
-                key={r.id}
-                restaurant={r}
-                onTap={() => handleCardTap(r)}
-              />
-            ))}
-          </div>
+          {/* Card list — scrolls under the sticky bar */}
+          {restaurants.map((r) => (
+            <RestaurantCard
+              key={r.id}
+              restaurant={r}
+              onTap={() => handleCardTap(r)}
+            />
+          ))}
         </div>
 
         {/* Detail panel */}
@@ -566,6 +638,7 @@ export default function BottomSheet({
             <DetailView
               restaurant={selectedRestaurant}
               onBack={() => onSelectRestaurant(null)}
+              onShowMap={() => setSnapState("peek")}
             />
           )}
         </div>

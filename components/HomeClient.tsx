@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import dynamic from "next/dynamic";
 import Logo from "@/components/Logo";
 import BottomSheet from "@/components/BottomSheet";
@@ -99,6 +99,12 @@ function SearchPill({
 }
 
 // ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+export type PriceFilter = "bajo" | "medio" | "alto" | null;
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
@@ -124,6 +130,14 @@ export default function HomeClient({
   // District filter — shared between desktop chips and mobile BottomSheet chips.
   const [activeDistrict, setActiveDistrict] = useState("Todos");
 
+  // Price filter — shared between desktop and mobile.
+  const [activePriceFilter, setActivePriceFilter] = useState<PriceFilter>(null);
+
+  // Toggle: clicking the active chip deactivates it (null = show all prices).
+  const handlePriceFilterChange = useCallback((f: PriceFilter) => {
+    setActivePriceFilter((prev) => (prev === f ? null : f));
+  }, []);
+
   // All unique districts, sorted — derived from the full restaurant list.
   const allDistricts = useMemo(
     () => [...new Set(restaurants.map((r) => r.neighborhood))].sort(),
@@ -144,6 +158,19 @@ export default function HomeClient({
         : searchFiltered.filter((r) => r.neighborhood === activeDistrict),
     [searchFiltered, activeDistrict]
   );
+
+  // Price filtering applied on top of district + search.
+  const priceFiltered = useMemo(() => {
+    if (!activePriceFilter) return districtFiltered;
+    return districtFiltered.filter((r) => {
+      const price = r.menus[0]?.price_eur;
+      if (price == null) return false;
+      if (activePriceFilter === "bajo") return Number(price) < 12;
+      if (activePriceFilter === "medio") return Number(price) >= 12 && Number(price) <= 14;
+      if (activePriceFilter === "alto") return Number(price) > 14;
+      return true;
+    });
+  }, [districtFiltered, activePriceFilter]);
 
   return (
     <>
@@ -238,10 +265,12 @@ export default function HomeClient({
           }}
         >
           <RestaurantList
-            restaurants={districtFiltered}
+            restaurants={priceFiltered}
             allDistricts={allDistricts}
             activeDistrict={activeDistrict}
             onDistrictChange={setActiveDistrict}
+            activePriceFilter={activePriceFilter}
+            onPriceFilterChange={handlePriceFilterChange}
             selectedRestaurant={selectedRestaurant}
             onSelectRestaurant={setSelectedRestaurant}
             hoveredRestaurantId={hoveredRestaurantId}
@@ -252,7 +281,7 @@ export default function HomeClient({
         {/* ── Map — shared by mobile and desktop ────────────────────── */}
         <div className="flex-1 relative" style={{ minHeight: 0 }}>
           <Map
-            restaurants={districtFiltered}
+            restaurants={priceFiltered}
             selectedRestaurant={selectedRestaurant}
             onSelectRestaurant={setSelectedRestaurant}
             hoveredRestaurantId={hoveredRestaurantId}
@@ -261,7 +290,7 @@ export default function HomeClient({
           />
 
           {/* Mobile empty-search overlay */}
-          {query.trim() && districtFiltered.length === 0 && (
+          {query.trim() && priceFiltered.length === 0 && (
             <div
               className="absolute inset-0 flex items-center justify-center pointer-events-none md:hidden"
               style={{ zIndex: 500 }}
@@ -291,12 +320,14 @@ export default function HomeClient({
       {/* ---------------------------------------------------------------- */}
       <div className="md:hidden">
         <BottomSheet
-          restaurants={districtFiltered}
+          restaurants={priceFiltered}
           selectedRestaurant={selectedRestaurant}
           onSelectRestaurant={setSelectedRestaurant}
           allDistricts={allDistricts}
           activeDistrict={activeDistrict}
           onDistrictChange={setActiveDistrict}
+          activePriceFilter={activePriceFilter}
+          onPriceFilterChange={handlePriceFilterChange}
         />
       </div>
     </>

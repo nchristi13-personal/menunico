@@ -2,6 +2,7 @@
 
 import { useRef, useEffect, useState, useMemo, useCallback } from "react";
 import type { Restaurant } from "@/components/Map";
+import type { PriceFilter } from "@/components/HomeClient";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -62,6 +63,61 @@ function DistrictChips({
           {d}
         </button>
       ))}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Price chips
+// ---------------------------------------------------------------------------
+
+const PRICE_CHIPS: { key: NonNullable<PriceFilter>; label: string }[] = [
+  { key: "bajo",  label: "< €12"    },
+  { key: "medio", label: "€12–€14"  },
+  { key: "alto",  label: "> €14"    },
+];
+
+function PriceChips({
+  active,
+  onChange,
+}: {
+  active: PriceFilter;
+  onChange: (f: PriceFilter) => void;
+}) {
+  const chipBase: React.CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    padding: "3px 10px",
+    borderRadius: 9999,
+    fontSize: 12,
+    fontWeight: 500,
+    flexShrink: 0,
+    cursor: "pointer",
+    border: "none",
+    whiteSpace: "nowrap",
+    transition: "background 0.15s, color 0.15s",
+  };
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
+      <span style={{ fontSize: 11, color: "#9a9895", whiteSpace: "nowrap", flexShrink: 0 }}>
+        Precio:
+      </span>
+      <div style={{ display: "flex", gap: 6, overflowX: "auto", scrollbarWidth: "none" }}>
+        {PRICE_CHIPS.map(({ key, label }) => (
+          <button
+            key={key}
+            onClick={() => onChange(key)}
+            style={
+              active === key
+                ? { ...chipBase, background: "#c0392b", color: "#fff" }
+                : { ...chipBase, background: "transparent", color: "#5a5755", border: "1px solid #d8d4d0" }
+            }
+          >
+            {label}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -244,6 +300,8 @@ export default function RestaurantList({
   allDistricts,
   activeDistrict,
   onDistrictChange,
+  activePriceFilter,
+  onPriceFilterChange,
   selectedRestaurant,
   onSelectRestaurant,
   hoveredRestaurantId,
@@ -253,6 +311,8 @@ export default function RestaurantList({
   allDistricts: string[];
   activeDistrict: string;
   onDistrictChange: (d: string) => void;
+  activePriceFilter: PriceFilter;
+  onPriceFilterChange: (f: PriceFilter) => void;
   selectedRestaurant: Restaurant | null;
   onSelectRestaurant: (r: Restaurant | null) => void;
   hoveredRestaurantId: string | null;
@@ -290,6 +350,12 @@ export default function RestaurantList({
           districts={allDistricts}
           active={activeDistrict}
           onChange={onDistrictChange}
+        />
+
+        {/* Price chips */}
+        <PriceChips
+          active={activePriceFilter}
+          onChange={onPriceFilterChange}
         />
       </div>
 

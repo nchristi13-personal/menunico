@@ -194,9 +194,12 @@ function MapController({
       .filter((r) => r.latitude != null && r.longitude != null)
       .map((r) => [r.latitude, r.longitude] as [number, number]);
     if (coords.length === 0) return;
-    // Tighter padding for a single district; looser for the full overview.
-    const padding: [number, number] = activeDistrict === "Todos" ? [40, 40] : [70, 70];
-    map.fitBounds(coords, { padding, animate: true });
+    // Tighter maxZoom for a single district; looser padding for the full overview.
+    if (activeDistrict === "Todos") {
+      map.fitBounds(coords, { padding: [32, 32], animate: true });
+    } else {
+      map.fitBounds(coords, { padding: [48, 48], maxZoom: 15, animate: true });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeDistrict, map]);
 
