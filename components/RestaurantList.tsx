@@ -210,7 +210,7 @@ function RestaurantCard({
   // Scroll expanded card into view smoothly
   useEffect(() => {
     if (isSelected && cardRef.current) {
-      cardRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      cardRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   }, [isSelected]);
 

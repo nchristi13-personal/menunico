@@ -19,10 +19,14 @@
  */
 
 import { randomUUID } from "node:crypto";
+import fs from "node:fs";
 import path from "node:path";
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@supabase/supabase-js";
 import * as XLSX from "xlsx";
+
+/** Path where geocoded restaurants are cached between runs. */
+const GEOCODE_CACHE_PATH = path.join(import.meta.dirname, ".geocode-cache.json");
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -32,9 +36,23 @@ const XLSX_DIR =
   "/Users/nikolaoschristianos/Downloads/drive-download-20260601T204340Z-3-001";
 
 /** Target restaurants per district. */
-const TARGET_PER_DISTRICT = 5;
-/** Pick this many candidates per district before geocoding (buffer for failures). */
-const PICK_PER_DISTRICT = 8;
+const TARGET_PER_DISTRICT = 50;
+/** Pick this many candidates per district before geocoding (buffer for failures + bounds rejects). */
+const PICK_PER_DISTRICT = 75;
+
+/**
+ * Tight rectangular approximation of the Barcelona municipal boundary.
+ * Any geocoded coordinate outside this box is discarded as a geocoding
+ * error (Nominatim returned a match in another city/country).
+ */
+const BCN_BOUNDS = { latMin: 41.31, latMax: 41.47, lonMin: 2.07, lonMax: 2.23 };
+
+function isInBarcelona(lat: number, lon: number): boolean {
+  return (
+    lat >= BCN_BOUNDS.latMin && lat <= BCN_BOUNDS.latMax &&
+    lon >= BCN_BOUNDS.lonMin && lon <= BCN_BOUNDS.lonMax
+  );
+}
 
 /** xlsx filename → canonical district name (matches schema CHECK constraint). */
 const DISTRICTS: ReadonlyArray<{ file: string; district: string }> = [
@@ -298,29 +316,27 @@ const MENU_TOOL: Anthropic.Tool = {
   },
 };
 
-async function generateMenus(
+/** Generate menus for one batch of restaurants (max ~50). */
+async function generateMenuBatch(
   client: Anthropic,
-  restaurants: GeocodedRestaurant[],
+  batch: GeocodedRestaurant[],
+  batchLabel: string,
 ): Promise<RestaurantMenuPair[]> {
-  const restaurantList = restaurants
-    .map(
-      (r, i) =>
-        `${i + 1}. ${r.name}\n   Address: ${r.rawAddress}\n   District: ${r.district}`,
-    )
+  const restaurantList = batch
+    .map((r, i) => `${i + 1}. ${r.name}\n   Address: ${r.rawAddress}\n   District: ${r.district}`)
     .join("\n\n");
 
-  const prompt = `Generate a fictional "menú del día" for each of the ${restaurants.length} real Barcelona restaurants below. The menus are invented — do not pull real menu data. Use the restaurant name and address as context to pick dishes that fit the venue (a "Cervecería" leans tapas; "Restaurant Vegetarian" leans plant-based; a hotel restaurant leans international; a Barceloneta venue leans seafood; etc.).
+  const prompt = `Generate a fictional "menú del día" for each of the ${batch.length} real Barcelona restaurants below. The menus are invented — do not pull real menu data. Use the restaurant name and address as context to pick dishes that fit the venue.
 
-CRITICAL: return exactly ${restaurants.length} menus — one per numbered restaurant. Each menu MUST include a \`restaurant_index\` field set to the 1-based number from the list (1 through ${restaurants.length}). Do not skip any number. Do not duplicate any number.
+CRITICAL: return exactly ${batch.length} menus. Each menu MUST include a \`restaurant_index\` set to its 1-based number (1–${batch.length}). Do not skip or duplicate any number.
 
-Rules for every menu:
-
-- **primeros**: exactly 3 plausible Spanish/Catalan starters. Examples: ensalada de tomate y burrata, escudella, sopa de pescado, croquetes de pollastre, pa amb tomàquet amb pernil, esqueixada de bacallà, crema de carbassa, amanida catalana, gazpacho.
-- **segundos**: exactly 3 plausible mains in Spanish/Catalan. Examples: bacallà a la llauna, botifarra amb mongetes, pollastre rostit, peix del mercat a la planxa, arròs caldós, fideuà, calamars a la romana, entrecot a la pedra, mandonguilles amb sípia.
-- **postres**: exactly 3 options. ALWAYS include "fruita del temps" or "iogurt" as one of them. The other two are traditional desserts (crema catalana, mel i mató, flam, pijama, recuit amb mel, tarta de Santiago).
-- **drink_included**: true for ~80% of menus (~${Math.round(restaurants.length * 0.8)} of ${restaurants.length}); spread the falses, don't clump them.
+Rules:
+- **primeros**: exactly 3 plausible Spanish/Catalan starters.
+- **segundos**: exactly 3 plausible mains in Spanish/Catalan.
+- **postres**: exactly 3 options; always include "fruita del temps" or "iogurt" as one.
+- **drink_included**: true for ~80% of menus; spread the falses.
 - **bread_included**: always true.
-- **price_eur**: between 10.00 and 15.50, two decimals. Higher-end venues (hotel restaurants, Sarrià-Sant Gervasi) cluster nearer 15; neighbourhood bars (Nou Barris, Sant Andreu) nearer 10.
+- **price_eur**: 10.00–15.50 (two decimals). Higher-end venues nearer 15; neighbourhood bars nearer 10.
 
 Vary dish combinations so menus don't feel templated.
 
@@ -330,7 +346,7 @@ ${restaurantList}`;
 
   const stream = client.messages.stream({
     model: "claude-sonnet-4-6",
-    max_tokens: 32000,
+    max_tokens: 16000,
     thinking: { type: "disabled" },
     output_config: { effort: "medium" },
     tools: [MENU_TOOL],
@@ -339,28 +355,27 @@ ${restaurantList}`;
   });
 
   const message = await stream.finalMessage();
+
   const toolUse = message.content.find(
     (b): b is Anthropic.ToolUseBlock => b.type === "tool_use",
   );
   if (!toolUse) {
     throw new Error(
-      `Expected tool_use, got blocks: [${message.content.map((b) => b.type).join(", ")}], stop_reason=${message.stop_reason}`,
+      `${batchLabel}: expected tool_use, got [${message.content.map((b) => b.type).join(", ")}], stop_reason=${message.stop_reason}`,
     );
   }
   const input = toolUse.input as { menus?: Menu[] };
   if (!Array.isArray(input.menus)) {
-    throw new Error(`Tool input missing 'menus' array: ${JSON.stringify(input).slice(0, 200)}`);
+    throw new Error(`${batchLabel}: tool input missing 'menus' array: ${JSON.stringify(input).slice(0, 200)}`);
   }
 
-  // Pair menus to restaurants by 1-based restaurant_index. Tolerate drops,
-  // duplicates, and out-of-range indices.
   const menuByIndex = new Map<number, Menu>();
   for (const m of input.menus) {
     if (
       typeof m.restaurant_index === "number" &&
       Number.isInteger(m.restaurant_index) &&
       m.restaurant_index >= 1 &&
-      m.restaurant_index <= restaurants.length &&
+      m.restaurant_index <= batch.length &&
       !menuByIndex.has(m.restaurant_index)
     ) {
       menuByIndex.set(m.restaurant_index, m);
@@ -369,22 +384,39 @@ ${restaurantList}`;
 
   const pairs: RestaurantMenuPair[] = [];
   const missing: number[] = [];
-  for (let i = 0; i < restaurants.length; i++) {
+  for (let i = 0; i < batch.length; i++) {
     const menu = menuByIndex.get(i + 1);
-    if (menu) {
-      pairs.push({ restaurant: restaurants[i], menu });
-    } else {
-      missing.push(i + 1);
-    }
+    if (menu) pairs.push({ restaurant: batch[i], menu });
+    else missing.push(i + 1);
   }
 
   if (missing.length > 0) {
-    console.warn(
-      `  ⚠ model returned ${input.menus.length}/${restaurants.length} usable menus — skipping restaurant index(es): ${missing.join(", ")}`,
-    );
+    console.warn(`  ⚠ ${batchLabel}: ${input.menus.length}/${batch.length} usable — skipping index(es): ${missing.join(", ")}`);
   }
 
   return pairs;
+}
+
+/** Generate menus for all restaurants in batches of MENU_BATCH_SIZE. */
+const MENU_BATCH_SIZE = 50;
+
+async function generateMenus(
+  client: Anthropic,
+  restaurants: GeocodedRestaurant[],
+): Promise<RestaurantMenuPair[]> {
+  const allPairs: RestaurantMenuPair[] = [];
+  const totalBatches = Math.ceil(restaurants.length / MENU_BATCH_SIZE);
+
+  for (let b = 0; b < totalBatches; b++) {
+    const batch = restaurants.slice(b * MENU_BATCH_SIZE, (b + 1) * MENU_BATCH_SIZE);
+    const label = `batch ${b + 1}/${totalBatches} (${batch[0].district}…)`;
+    process.stdout.write(`  ${label} → `);
+    const pairs = await generateMenuBatch(client, batch, label);
+    console.log(`${pairs.length}/${batch.length} menus`);
+    allPairs.push(...pairs);
+  }
+
+  return allPairs;
 }
 
 // ---------------------------------------------------------------------------
@@ -424,46 +456,66 @@ async function seed(): Promise<void> {
     auth: { persistSession: false },
   });
 
-  // ---- 1. Extract -----------------------------------------------------
-  console.log("Extracting restaurants from spreadsheets…");
-  const candidates: CandidateRestaurant[] = [];
-  for (const { file, district } of DISTRICTS) {
-    const fullPath = path.join(XLSX_DIR, file);
-    const found = extractFromWorkbook(fullPath, district);
-    console.log(`  ${district.padEnd(22)} ${found.length.toString().padStart(4)} candidates from ${file}`);
-    candidates.push(...found);
-  }
+  // ---- 1–3. Geocode (or restore from cache) ---------------------------
+  let finalSet: GeocodedRestaurant[];
 
-  // ---- 2. Sample -----------------------------------------------------
-  console.log(`\nSampling up to ${PICK_PER_DISTRICT} per district…`);
-  const picks: CandidateRestaurant[] = [];
-  for (const { district } of DISTRICTS) {
-    const pool = candidates.filter((c) => c.district === district);
-    const sampled = shuffle([...pool]).slice(0, PICK_PER_DISTRICT);
-    if (sampled.length < TARGET_PER_DISTRICT) {
-      console.warn(
-        `  ⚠ ${district}: only ${sampled.length} candidates (target ${TARGET_PER_DISTRICT})`,
-      );
+  if (fs.existsSync(GEOCODE_CACHE_PATH)) {
+    // Fast path: reuse geocoded data from a previous run.
+    console.log(`\nLoading geocoded restaurants from cache: ${GEOCODE_CACHE_PATH}`);
+    finalSet = JSON.parse(fs.readFileSync(GEOCODE_CACHE_PATH, "utf-8")) as GeocodedRestaurant[];
+    console.log(`  ↳ ${finalSet.length} restaurants loaded.`);
+  } else {
+    // ---- 1. Extract --------------------------------------------------
+    console.log("Extracting restaurants from spreadsheets…");
+    const candidates: CandidateRestaurant[] = [];
+    for (const { file, district } of DISTRICTS) {
+      const fullPath = path.join(XLSX_DIR, file);
+      const found = extractFromWorkbook(fullPath, district);
+      console.log(`  ${district.padEnd(22)} ${found.length.toString().padStart(4)} candidates from ${file}`);
+      candidates.push(...found);
     }
-    picks.push(...sampled);
-  }
-  console.log(`  Total picked: ${picks.length} (will geocode all, target ${DISTRICTS.length * TARGET_PER_DISTRICT})`);
 
-  // ---- 3. Geocode ----------------------------------------------------
-  console.log(`\nGeocoding ${picks.length} addresses via Nominatim (${NOMINATIM_DELAY_MS}ms/req)…`);
-  const geocoded = await geocodeAll(picks);
-
-  // Trim each district back to TARGET_PER_DISTRICT successful geocodes.
-  const finalSet: GeocodedRestaurant[] = [];
-  for (const { district } of DISTRICTS) {
-    const districtGeocoded = geocoded.filter((g) => g.district === district);
-    if (districtGeocoded.length < TARGET_PER_DISTRICT) {
-      console.warn(
-        `  ⚠ ${district}: only ${districtGeocoded.length} geocoded (wanted ${TARGET_PER_DISTRICT})`,
-      );
+    // ---- 2. Sample ---------------------------------------------------
+    console.log(`\nSampling up to ${PICK_PER_DISTRICT} per district…`);
+    const picks: CandidateRestaurant[] = [];
+    for (const { district } of DISTRICTS) {
+      const pool = candidates.filter((c) => c.district === district);
+      const sampled = shuffle([...pool]).slice(0, PICK_PER_DISTRICT);
+      if (sampled.length < TARGET_PER_DISTRICT) {
+        console.warn(`  ⚠ ${district}: only ${sampled.length} candidates (target ${TARGET_PER_DISTRICT})`);
+      }
+      picks.push(...sampled);
     }
-    finalSet.push(...districtGeocoded.slice(0, TARGET_PER_DISTRICT));
+    console.log(`  Total picked: ${picks.length} (will geocode all, target ${DISTRICTS.length * TARGET_PER_DISTRICT})`);
+
+    // ---- 3. Geocode --------------------------------------------------
+    console.log(`\nGeocoding ${picks.length} addresses via Nominatim (${NOMINATIM_DELAY_MS}ms/req)…`);
+    const geocoded = await geocodeAll(picks);
+
+    // Filter OOB and trim to target per district.
+    finalSet = [];
+    for (const { district } of DISTRICTS) {
+      const allGeocoded = geocoded.filter((g) => g.district === district);
+      const inBounds = allGeocoded.filter((g) => {
+        if (!isInBarcelona(g.latitude, g.longitude)) {
+          console.log(`  ✗ OOB  ${district} — ${g.name.slice(0, 40)}: ${g.latitude.toFixed(5)},${g.longitude.toFixed(5)}`);
+          return false;
+        }
+        return true;
+      });
+      const oobCount = allGeocoded.length - inBounds.length;
+      if (oobCount > 0) console.log(`  ↳ ${district}: removed ${oobCount} out-of-bounds`);
+      if (inBounds.length < TARGET_PER_DISTRICT) {
+        console.warn(`  ⚠ ${district}: only ${inBounds.length} valid geocodes (wanted ${TARGET_PER_DISTRICT})`);
+      }
+      finalSet.push(...inBounds.slice(0, TARGET_PER_DISTRICT));
+    }
+
+    // Save to cache so a re-run skips geocoding.
+    fs.writeFileSync(GEOCODE_CACHE_PATH, JSON.stringify(finalSet, null, 2));
+    console.log(`\n✓ Geocode cache saved → ${GEOCODE_CACHE_PATH}`);
   }
+
   console.log(`\nFinal restaurant count: ${finalSet.length} / ${DISTRICTS.length * TARGET_PER_DISTRICT}`);
   if (finalSet.length === 0) {
     throw new Error("No restaurants geocoded successfully — aborting.");
@@ -531,6 +583,12 @@ async function seed(): Promise<void> {
   for (const { district } of DISTRICTS) {
     const count = perDistrict.get(district) ?? 0;
     console.log(`  ${count === TARGET_PER_DISTRICT ? "✓" : "⚠"} ${district.padEnd(22)} ${count}`);
+  }
+
+  // Clean up the geocode cache now that we've committed to the DB.
+  if (fs.existsSync(GEOCODE_CACHE_PATH)) {
+    fs.unlinkSync(GEOCODE_CACHE_PATH);
+    console.log("  ↳ Geocode cache deleted.");
   }
 
   console.log("\n✓ Seed complete.");
