@@ -20,7 +20,7 @@ const Map = dynamic(() => import("@/components/Map"), {
 // Search logic (mobile only — desktop uses district chips)
 // ---------------------------------------------------------------------------
 
-function searchRestaurants(restaurants: Restaurant[], query: string): Restaurant[] {
+export function searchRestaurants(restaurants: Restaurant[], query: string): Restaurant[] {
   const q = query.toLowerCase().trim();
   if (!q) return restaurants;
   return restaurants.filter((r) => {

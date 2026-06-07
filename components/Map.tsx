@@ -57,9 +57,9 @@ function useIsMobile(): boolean {
 // Pin state → icon
 // ---------------------------------------------------------------------------
 
-type PinState = "default" | "hovered" | "selected" | "dimmed";
+export type PinState = "default" | "hovered" | "selected" | "dimmed";
 
-function getPinState(
+export function getPinState(
   id: string,
   selectedId: string | null,
   hoveredId: string | null,
@@ -85,14 +85,14 @@ function getPinState(
  *
  * Anchor is always the teardrop's tip (bottom centre).
  */
-const PIN_SPECS: Record<PinState, { width: number; opacity: number; highlighted: boolean }> = {
+export const PIN_SPECS: Record<PinState, { width: number; opacity: number; highlighted: boolean }> = {
   selected: { width: 20, opacity: 1, highlighted: true },
   hovered: { width: 18, opacity: 1, highlighted: false },
   default: { width: 16, opacity: 0.78, highlighted: false },
   dimmed: { width: 13, opacity: 0.4, highlighted: false },
 };
 
-function teardropPinHtml(width: number, height: number, opacity: number, highlighted: boolean): string {
+export function teardropPinHtml(width: number, height: number, opacity: number, highlighted: boolean): string {
   const shadow = highlighted ? ' style="filter:drop-shadow(0 2px 3px rgba(0,0,0,0.35))"' : "";
   const dot = highlighted ? '<circle cx="10" cy="10" r="4" fill="white"/>' : "";
   return `<svg width="${width}" height="${height}" viewBox="0 0 20 28"${shadow}><path d="M10 0C4.477 0 0 4.477 0 10c0 7.18 10 18 10 18s10-10.82 10-18C20 4.477 15.523 0 10 0z" fill="#c0392b" fill-opacity="${opacity}"/>${dot}</svg>`;
@@ -114,11 +114,16 @@ function makeIcon(state: PinState): L.DivIcon {
 // apart as the user zooms in (powered by supercluster).
 // ---------------------------------------------------------------------------
 
-type RestaurantPointProps = { restaurantId: string };
+export type RestaurantPointProps = { restaurantId: string };
 
-function makeClusterIcon(count: number): L.DivIcon {
+export function clusterIconSpec(count: number): { size: number; fontSize: number } {
   const size = count < 10 ? 32 : count < 100 ? 40 : 48;
   const fontSize = count < 10 ? 13 : count < 100 ? 14 : 15;
+  return { size, fontSize };
+}
+
+function makeClusterIcon(count: number): L.DivIcon {
+  const { size, fontSize } = clusterIconSpec(count);
   const html = `<div style="width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:#c0392b;color:#fff;border:2px solid #fff;font:600 ${fontSize}px/1 system-ui,-apple-system,BlinkMacSystemFont,sans-serif;box-shadow:0 2px 5px rgba(0,0,0,0.35);">${count}</div>`;
   return L.divIcon({
     html,
@@ -126,6 +131,58 @@ function makeClusterIcon(count: number): L.DivIcon {
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
   });
+}
+
+const CLUSTER_OPTIONS: Supercluster.Options<RestaurantPointProps, Supercluster.AnyProps> = {
+  radius: 56,
+  maxZoom: 16,
+};
+
+export function buildClusterIndex(restaurants: Restaurant[]): Supercluster<RestaurantPointProps> {
+  const index = new Supercluster<RestaurantPointProps>(CLUSTER_OPTIONS);
+  index.load(
+    restaurants
+      .filter((r) => r.latitude != null && r.longitude != null)
+      .map((r) => ({
+        type: "Feature",
+        properties: { restaurantId: r.id },
+        geometry: { type: "Point", coordinates: [r.longitude, r.latitude] },
+      }))
+  );
+  return index;
+}
+
+export type MapClusterItem =
+  | Supercluster.ClusterFeature<Supercluster.AnyProps>
+  | Supercluster.PointFeature<RestaurantPointProps>;
+
+/**
+ * Clusters within the given viewport/zoom, then "breaks open" whichever
+ * cluster contains the selected restaurant — the highlighted pin must always
+ * stand on its own, never hidden behind a numbered badge.
+ */
+export function getClusterItems(
+  index: Supercluster<RestaurantPointProps>,
+  bbox: [number, number, number, number],
+  zoom: number,
+  selectedId: string | null
+): MapClusterItem[] {
+  const raw = index.getClusters(bbox, Math.round(zoom));
+  if (!selectedId) return raw;
+
+  const expanded: MapClusterItem[] = [];
+  for (const feature of raw) {
+    const props = feature.properties as { cluster?: true; cluster_id?: number };
+    if (props.cluster) {
+      const leaves = index.getLeaves(props.cluster_id!, Infinity);
+      if (leaves.some((leaf) => leaf.properties.restaurantId === selectedId)) {
+        expanded.push(...leaves);
+        continue;
+      }
+    }
+    expanded.push(feature);
+  }
+  return expanded;
 }
 
 function RestaurantMarker({
@@ -197,45 +254,12 @@ function ClusterLayer({
     moveend: () => setView((v) => ({ ...v, bounds: map.getBounds() })),
   });
 
-  const points = useMemo(
-    () => restaurants.filter((r) => r.latitude != null && r.longitude != null),
-    [restaurants]
-  );
-
-  const index = useMemo(() => {
-    const sc = new Supercluster<RestaurantPointProps>({ radius: 56, maxZoom: 16 });
-    sc.load(
-      points.map((r) => ({
-        type: "Feature",
-        properties: { restaurantId: r.id },
-        geometry: { type: "Point", coordinates: [r.longitude, r.latitude] },
-      }))
-    );
-    return sc;
-  }, [points]);
+  const index = useMemo(() => buildClusterIndex(restaurants), [restaurants]);
 
   const items = useMemo(() => {
     const b = view.bounds;
     const bbox: [number, number, number, number] = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()];
-    const raw = index.getClusters(bbox, Math.round(view.zoom));
-    if (!selectedId) return raw;
-
-    // If the selected restaurant landed inside a cluster, break that one
-    // cluster open into its individual points — the highlighted pin must
-    // always stand on its own, never hidden behind a numbered badge.
-    const expanded: typeof raw = [];
-    for (const feature of raw) {
-      const props = feature.properties as { cluster?: true; cluster_id?: number };
-      if (props.cluster) {
-        const leaves = index.getLeaves(props.cluster_id!, Infinity);
-        if (leaves.some((leaf) => (leaf.properties as RestaurantPointProps).restaurantId === selectedId)) {
-          expanded.push(...leaves);
-          continue;
-        }
-      }
-      expanded.push(feature);
-    }
-    return expanded;
+    return getClusterItems(index, bbox, view.zoom, selectedId);
   }, [index, view, selectedId]);
 
   return (

@@ -8,7 +8,7 @@ import type { PriceFilter } from "@/components/HomeClient";
 // Helpers
 // ---------------------------------------------------------------------------
 
-function cleanAddress(raw: string) {
+export function cleanAddress(raw: string) {
   return raw.replace(/\s*\([^)]+\)\s*$/, "").trim();
 }
 
