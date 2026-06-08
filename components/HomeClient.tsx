@@ -340,10 +340,10 @@ export default function HomeClient({
             suppressFitBoundsRef={suppressFitBoundsRef}
           />
 
-          {/* "Buscar en esta zona" — desktop only, floats over map when visible */}
+          {/* "Buscar en esta zona" — floats over the map (mobile + desktop) when visible */}
           {showSearchArea && (
             <div
-              className="hidden md:flex absolute inset-x-0 justify-center pointer-events-none"
+              className="flex absolute inset-x-0 justify-center pointer-events-none"
               style={{ top: 12, zIndex: 500 }}
             >
               <button
